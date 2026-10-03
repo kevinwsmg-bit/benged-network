@@ -1,0 +1,5 @@
+config.json
+.venv/
+.backup/
+debug/
+__pycache__/

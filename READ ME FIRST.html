@@ -1,0 +1,150 @@
+<title>Benged Network Setup</title>
+<meta name="description" content="Install and OBS setup for benged's auto-reacting WARDOGS overlay">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Chakra+Petch:wght@400;600;700&display=swap">
+<style>
+:root{--bg:#f4f2ec;--card:#ffffff;--ink:#1d211a;--muted:#5d6455;--line:#d9d6cc;--accent:#c27a00;--accent-ink:#ffffff;--ok:#2f8f4e;--wait:#b26b00;--code:#efece4;
+  --f-ui:"Chakra Petch","Segoe UI",system-ui,sans-serif;--f-stamp:"Anton",Impact,"Arial Narrow",sans-serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#11130f;--card:#1a1d17;--ink:#e8eadf;--muted:#a3aa96;--line:#30362a;--accent:#ffb000;--accent-ink:#171100;--ok:#58c97a;--wait:#ffb35c;--code:#232820;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#11130f;--card:#1a1d17;--ink:#e8eadf;--muted:#a3aa96;--line:#30362a;--accent:#ffb000;--accent-ink:#171100;--ok:#58c97a;--wait:#ffb35c;--code:#232820;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:16px/1.6 var(--f-ui);padding-inline:16px;padding-block:28px 60px}
+.wrap{max-width:780px;margin:0 auto;display:flex;flex-direction:column;gap:22px}
+h1{font:400 clamp(34px,6vw,52px)/1 var(--f-stamp);margin:0;letter-spacing:.01em}
+h1 span{color:var(--accent)}
+.lede{color:var(--muted);margin:6px 0 0;max-width:62ch}
+section{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:18px 20px}
+h2{font:700 13px var(--f-ui);letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin:0 0 10px}
+h3{font:700 17px var(--f-ui);margin:14px 0 4px}
+ol,ul{margin:6px 0;padding-left:22px}
+li{margin:5px 0}
+code,.kbd{font:600 14px Consolas,ui-monospace,monospace;background:var(--code);border:1px solid var(--line);border-radius:4px;padding:1px 6px;word-break:break-all}
+.url{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0}
+.url code{font-size:15px;padding:4px 8px}
+button{font:700 13px var(--f-ui);background:var(--accent);color:var(--accent-ink);border:0;border-radius:4px;padding:6px 10px;cursor:pointer}
+button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:15px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.tag{display:inline-block;font:700 12px var(--f-ui);letter-spacing:.06em;border-radius:99px;padding:1px 9px;white-space:nowrap}
+.ok{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}
+.wait{background:color-mix(in srgb,var(--wait) 18%,transparent);color:var(--wait)}
+.note{border-left:4px solid var(--accent);padding:4px 0 4px 12px;color:var(--muted);margin:10px 0 0}
+.steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media(max-width:620px){.steps{grid-template-columns:1fr}}
+.steps div{border:1px solid var(--line);border-radius:6px;padding:12px}
+.steps b{display:block;font:400 26px var(--f-stamp);color:var(--accent)}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>BENGED <span>NETWORK</span> SETUP</h1>
+    <p class="lede">Your WARDOGS overlay watches the game the same way viewers do and reacts on its own: heli crashes, getting knocked down, revives, the vendor, the pilot seat and more. It only reads the picture OBS already has. It never touches the game, so anti-cheat has nothing to see.</p>
+  </header>
+
+  <section>
+    <h2>The short version</h2>
+    <div class="steps">
+      <div><b>1</b>Double-click <code>SETUP.bat</code> (once).</div>
+      <div><b>2</b>Turn on OBS WebSocket and add one browser source (once).</div>
+      <div><b>3</b>Every stream: double-click <code>START.bat</code> and leave its window open. Updates install themselves.</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>1 · Install (one time, about 5 minutes)</h2>
+    <ol>
+      <li>Unzip the folder somewhere it can stay, for example <code>Documents\benged-network</code>.</li>
+      <li>Double-click <code>SETUP.bat</code>. It needs <b>Python 3.12</b> and installs it for you if it's missing. Newer versions like 3.13 or 3.14 are too new for the text reader, but they can stay installed alongside it.</li>
+      <li>It then downloads the reader (about 150 MB) and says <b>Done</b> when it finishes.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>2 · OBS (one time)</h2>
+    <h3>Turn on the WebSocket</h3>
+    <ol>
+      <li>OBS → <b>Tools → WebSocket Server Settings</b>.</li>
+      <li>Tick <b>Enable WebSocket server</b> (port <code>4455</code>), then <b>Show Connect Info</b> and copy the password.</li>
+    </ol>
+    <h3>Add the overlay</h3>
+    <ol>
+      <li>In your WARDOGS scene: <b>+ → Browser</b>, name it <b>Benged Network</b>.</li>
+      <li>URL:
+        <div class="url"><code id="ovurl">http://localhost:8765/overlay</code><button type="button" id="cp">Copy</button></div>
+      </li>
+      <li>Width <code>1920</code>, Height <code>1080</code>. Tick <b>Control audio via OBS</b> so the overlay's sounds get their own volume slider.</li>
+      <li>Drag it <b>above</b> the game capture. Your webcam goes under it (next step).</li>
+    </ol>
+    <h3>Move your webcam</h3>
+    <p>The overlay draws a frame for your cam at the <b>top-left</b>: X <code>24</code>, Y <code>22</code>, size <code>360 × 203</code> (on a 1920 × 1080 canvas). Put your webcam source there, under the overlay. This also stops your cam covering the game's kill feed.</p>
+    <h3>Optional: auto-save clips</h3>
+    <p>OBS → <b>Settings → Output → Replay Buffer</b> → enable it, and press <b>Start Replay Buffer</b> when you go live. Then tick the replay-buffer box in the control panel. About 8 seconds after a heli crash, a 100 m+ kill, or 3 kills in a minute, OBS saves the replay buffer (the last 20–30 seconds, whatever length you set in OBS) to your recordings folder.</p>
+  </section>
+
+  <section>
+    <h2>3 · Every stream</h2>
+    <ol>
+      <li>Open OBS and WARDOGS.</li>
+      <li>Double-click <code>START.bat</code>. Leave the black window open. The control panel opens in your browser.</li>
+      <li><b>First time only, Step 1:</b> paste the OBS WebSocket password and press <b>Connect</b>. The top-right light turns green and the source list fills in. If it doesn't, the red message under the password says why.</li>
+      <li><b>First time only, Step 2:</b> pick the source that shows WARDOGS (your <b>Game Capture</b>, not the scene), check your in-game name says <code>Benged</code> (add others with commas if you play on another account), and press <b>Save</b>.</li>
+      <li>Check <b>What the reader sees</b> shows your game with yellow boxes around the cash, kill feed and heli controls.</li>
+      <li>Press a few <b>Test</b> buttons. You should see and hear them on the overlay.</li>
+      <li>Press <b>Reset overlay for a new stream</b> before you go live, so test clicks don't count. Restarting <code>START.bat</code> also starts fresh.</li>
+    </ol>
+    <p class="note">Channels switch the moment the reader is sure what you're doing, and the newest activity wins. Each one drops back to Combat 30 s after that activity stops.</p>
+    <p class="note">Game settings: keep WARDOGS at 16:9 with the default HUD scale. If the yellow boxes miss the HUD, screenshot the control panel and send it to Kevin.</p>
+  </section>
+
+  <section>
+    <h2>Updates</h2>
+    <p>Kevin keeps improving the overlay. You never need a new zip again:</p>
+    <ul>
+      <li><b>START.bat</b> checks for a new version each time you start it and installs it before the overlay opens.</li>
+      <li>If an update comes out while it's running, your control panel shows <b>Update available</b>. Press <b>Update now</b> (best between streams; the overlay restarts fresh).</li>
+      <li>If an update ever fails to start, it puts the previous version back on its own.</li>
+    </ul>
+    <div class="url"><a href="http://localhost:8765/"><button type="button" tabindex="-1">Open my control panel</button></a><span style="color:var(--muted)">(works while START.bat is running)</span></div>
+  </section>
+
+  <section>
+    <h2>What it reacts to</h2>
+    <p>"Tested" means it was checked against footage from your own VODs. "First stream" means it is built but needs your live game to confirm.</p>
+    <div class="tbl"><table>
+      <thead><tr><th>In the game</th><th>On the overlay</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>Knocked down (<i>GIVE UP / CALL FOR HELP</i>)</td><td>Sad trombone, Purgatory screen for 6 s (who got you, chat ruling), then it gets out of the way</td><td><span class="tag ok">Tested</span></td></tr>
+        <tr><td>Revived by a medic</td><td>"SAVED" card (otherwise "BACK IN ACTION")</td><td><span class="tag ok">Tested</span></td></tr>
+        <tr><td>Heli crash (your own name on both sides)</td><td>Black box, crash stamp, callsign downgrade, crash clock resets</td><td><span class="tag ok">Tested</span></td></tr>
+        <tr><td>Pilot seat (cockpit or third-person camera)</td><td>Switches to <b>Benged Air</b> right away, with speed and altitude read off your gauges</td><td><span class="tag ok">Tested</span></td></tr>
+        <tr><td>Any vendor (equipment, vehicle, garage)</td><td>Benged Shopping Network</td><td><span class="tag ok">Tested</span></td></tr>
+        <tr><td>Reviving a teammate</td><td>Switches to <b>Dr. Benged, MD</b>, revive jingle</td><td><span class="tag ok">Tested</span></td></tr>
+        <tr><td>Tips, zone money, supply runs, cash, going broke</td><td>Tip Jar, $BNGD ticker, telethon on a new low</td><td><span class="tag ok">Tested</span></td></tr>
+        <tr><td>Map, inventory, scoreboard</td><td>Ignored (no false deaths)</td><td><span class="tag ok">Tested</span></td></tr>
+        <tr><td>Kills (the <i>+$2,000 CONFIRMED</i> popup and your kill-feed line)</td><td>Kill card with distance, streak fire, Main Character at 3</td><td><span class="tag wait">First stream</span></td></tr>
+        <tr><td>Building</td><td>Switches to <b>Benged Builds</b></td><td><span class="tag wait">First stream</span></td></tr>
+        <tr><td>In a vehicle (2 s)</td><td>Switches to <b>42.01 Benged FM</b></td><td><span class="tag wait">First stream</span></td></tr>
+        <tr><td>Grenade kill</td><td>Counts as a kill. The <b>YEET</b> needs the weapon icon reader, coming next</td><td><span class="tag wait">Next update</span></td></tr>
+        <tr><td>Level-up</td><td>Level-up card (waiting to see what the game shows)</td><td><span class="tag wait">Next update</span></td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>If something looks wrong</h2>
+    <ul>
+      <li><b>Wrong celebration?</b> Press <b>Pause reader</b> in the control panel. The overlay stays up but stops reacting.</li>
+      <li><b>Missed something?</b> Note the time it happened. The control panel's <b>Live events</b> list shows everything the reader saw.</li>
+      <li><b>Send Kevin:</b> a screenshot of the control panel and the time of anything odd. That's enough to fix it.</li>
+      <li><b>Overlay shows "OVERLAY OFFLINE":</b> <code>START.bat</code> isn't running.</li>
+      <li><b>Top-right says "overlay NOT connected":</b> the OBS Browser source isn't loading the overlay. Check its URL is exactly <code>http://localhost:8765/overlay</code>, <b>Local file</b> is unticked, size 1920 × 1080, then press <b>Refresh cache of current page</b>.</li>
+      <li><b>Flying but no Benged Air?</b> Look at <b>Heli gauges</b> in the control panel while you fly. Send Kevin a screenshot if it stays at "—".</li>
+      <li><b>Too heavy on your PC?</b> It reads 3 times a second and uses about one CPU core at most. Lower <code>"fps"</code> to <code>2</code> in <code>config.json</code> if you need to.</li>
+    </ul>
+  </section>
+</div>
+<script>
+document.getElementById('cp').addEventListener('click',()=>{const t=document.getElementById('ovurl').textContent;navigator.clipboard.writeText(t).then(()=>{document.getElementById('cp').textContent='Copied'},()=>{const r=document.createRange();r.selectNodeContents(document.getElementById('ovurl'));const s=getSelection();s.removeAllRanges();s.addRange(r);});});
+</script>

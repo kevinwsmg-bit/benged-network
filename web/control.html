@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Benged Network · Control</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Chakra+Petch:wght@400;600;700&display=swap">
+<style>
+:root{--bg:#0f110d;--panel:#181b15;--panel2:#20241c;--line:#2f3528;--text:#e8eadf;--muted:#9ba290;--amber:#ffb000;--ok:#4fd06b;--bad:#ff5a4f;
+  --f-ui:"Chakra Petch","Segoe UI",system-ui,sans-serif;--f-stamp:"Anton",Impact,sans-serif;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 var(--f-ui);padding:18px 16px 40px}
+.wrap{max-width:1280px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+h1{font:400 32px/1 var(--f-stamp);margin:0;letter-spacing:.02em}h1 span{color:var(--amber)}
+.grid{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:14px}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+h2{margin:0;font:700 12px var(--f-ui);letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+label{color:var(--muted);font-size:13px}
+input,select{font:600 14px var(--f-ui);background:#0c0e0a;color:var(--text);border:1px solid var(--line);border-radius:4px;padding:7px 9px;min-width:0}
+button{font:600 14px var(--f-ui);color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:8px 12px;cursor:pointer}
+button:hover{border-color:#566048}
+button.go{background:var(--amber);color:#171100;border-color:var(--amber)}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:99px;background:#0c0e0a;border:1px solid var(--line);font-weight:700;font-size:13px}
+.pill i{width:9px;height:9px;border-radius:50%;background:var(--muted)}
+.pill.ok i{background:var(--ok)}.pill.bad i{background:var(--bad)}
+.shot{width:100%;aspect-ratio:16/9;background:#000 center/contain no-repeat;border:1px solid var(--line);border-radius:4px;display:grid;place-items:center;color:var(--muted)}
+.log{font:500 13px/1.5 Consolas,monospace;background:#0c0e0a;border:1px solid var(--line);padding:8px 10px;height:300px;overflow:auto}
+.log div{white-space:pre-wrap;word-break:break-word}
+.log .k{color:#ff8a7a}.log .s{color:#7cff6b}.log .x{color:#ffd27a}.log .d{color:#ff5a4f}.log .q{color:var(--muted)}
+.url{font:600 13px Consolas,monospace;background:#0c0e0a;border:1px solid var(--line);padding:6px 9px;border-radius:4px;user-select:all}
+.err{color:var(--bad);font-weight:600}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}
+.stats div{background:#0c0e0a;border:1px solid var(--line);border-radius:4px;padding:8px}
+.stats b{display:block;font:400 26px var(--f-stamp)}
+.stats span{color:var(--muted);font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+.hint{color:var(--muted);font-size:13px;margin:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="row" style="justify-content:space-between">
+    <h1>BENGED <span>NETWORK</span> · CONTROL <small id="ver" style="font:600 13px var(--f-ui);color:var(--muted);letter-spacing:.06em"></small></h1>
+    <div class="row"><span class="pill" id="obsPill"><i></i><span id="obsTxt">OBS …</span></span><span class="pill" id="ovPill"><i></i><span id="ovTxt">overlay …</span></span></div>
+  </div>
+
+  <div class="box" id="updBox" style="display:none;border-color:var(--amber)">
+    <div class="row" style="align-items:center"><b id="updTxt" style="flex:1"></b><button class="go" id="updBtn" type="button">Update now</button></div>
+    <p class="hint" id="updNotes" style="margin:6px 0 0"></p>
+  </div>
+
+  <div class="grid">
+    <div class="box">
+      <h2>What the reader sees</h2>
+      <div class="shot" id="shot">No frame yet. Pick the game source on the right.</div>
+      <div class="stats">
+        <div><span>Checks / sec</span><b id="fps">0</b></div>
+        <div><span>ms per check</span><b id="ms">0</b></div>
+        <div><span>Channel signal</span><b id="chan">—</b></div>
+        <div><span>Screen</span><b id="scr">—</b></div>
+        <div><span>Heli gauges</span><b id="heli">—</b></div>
+      </div>
+      <p class="hint">Yellow boxes are where the reader looks. If WARDOGS is a different resolution or HUD scale and the boxes miss the cash, kill feed or heli controls, tell Kevin and send a screenshot of this panel.</p>
+    </div>
+
+    <div class="box">
+      <h2>Step 1 · Connect to OBS</h2>
+      <p class="hint">OBS → Tools → WebSocket Server Settings → tick Enable, press Show Connect Info, copy the password.</p>
+      <div class="row"><input id="host" style="width:120px" aria-label="OBS host" value="localhost"><input id="port" style="width:80px" aria-label="OBS port" value="4455"><input id="pw" type="password" style="flex:1" aria-label="OBS WebSocket password" placeholder="paste the WebSocket password"><button class="go" id="connect" type="button">Connect</button></div>
+      <div class="err" id="err"></div>
+      <h2 style="margin-top:6px">Step 2 · Pick the game</h2>
+      <div class="row"><label for="src">The OBS source that shows WARDOGS (your Game Capture, not the scene)</label></div>
+      <div class="row"><select id="src" style="flex:1"><option value="">(connect to OBS first)</option></select><button id="refresh" type="button">Refresh</button></div>
+      <div class="row"><label for="names">Your in-game name(s), comma separated</label></div>
+      <div class="row"><input id="names" style="flex:1" value="Benged"></div>
+      <div class="row"><label for="rb"><input type="checkbox" id="rb"> Save OBS replay buffer on big moments (crash, 100 m+ kill, 3 kills in a minute)</label></div>
+      <div class="row"><button class="go" id="save" type="button">Save</button><button id="pause" type="button">Pause reader</button><span id="saved" class="hint"></span></div>
+      <h2 style="margin-top:6px">Overlay URL for OBS (browser source, 1920 × 1080)</h2>
+      <div class="row"><span class="url" id="ovUrl"></span><button id="copy" type="button">Copy</button></div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="box">
+      <h2>Live events</h2>
+      <div class="log" id="log"></div>
+    </div>
+    <div class="box">
+      <h2>Test the overlay (fires the real effects on stream)</h2>
+      <div class="row" id="tests">
+        <button data-ev='{"type":"kill","dist":38,"victim":"TestDummy","via":"test"}'>Kill</button>
+        <button data-ev='{"type":"kill","dist":138,"victim":"[MITT] Joshingya","via":"test"}'>Long shot</button>
+        <button data-ev='{"type":"kill","dist":14,"victim":"Grenade Guy","weapon":"nade","via":"test"}'>Grenade kill</button>
+        <button data-ev='{"type":"down","killer":"BelowAverageITGuy","self_inflicted":false}'>Knocked down</button>
+        <button data-ev='{"type":"up","after":12}'>Back up</button>
+        <button data-ev='{"type":"xp","kind":"revived_me","amount":0,"money":100}'>Revived (then Back up)</button>
+        <button data-ev='{"type":"selfkill","pilot":true}'>Heli crash</button>
+        <button data-ev='{"type":"xp","kind":"build_complete","amount":5,"money":50}'>Build</button>
+        <button data-ev='{"type":"xp","kind":"revive","amount":250,"money":0}'>Revive teammate</button>
+        <button data-ev='{"type":"xp","kind":"supplies","amount":500,"money":0}'>Supply drop</button>
+        <button data-ev='{"type":"xp","kind":"tip","amount":0,"money":-30}'>Tip</button>
+        <button data-ev='{"type":"cash","match":-2340,"wallet":1350000}'>Go broke</button>
+        <button data-ev='{"type":"xp","kind":"level","amount":0,"money":0}'>Level up</button>
+        <button data-ev='{"type":"state","pilot":true,"vehicle":false,"scoped":false,"hurt":false,"screen":"none"}'>Pilot seat</button>
+        <button data-ev='{"type":"state","pilot":false,"vehicle":true,"scoped":false,"hurt":false,"screen":"none"}'>In a vehicle</button>
+        <button data-ev='{"type":"state","pilot":false,"vehicle":false,"scoped":false,"hurt":false,"screen":"none"}'>On foot</button>
+      </div>
+      <p class="hint">Channels switch as soon as the reader is sure: Benged Air the moment you're in the pilot seat, 42.01 Benged FM after 2 s in a vehicle, Benged Builds on a build, Dr. Benged on a revive. The newest activity wins. Back to Combat 30 s after the activity stops. The knocked-down screen closes itself after 6 s. Test buttons go to the overlay the same way real events do.</p>
+      <h2 style="margin-top:14px">Start fresh</h2>
+      <div class="row"><button class="go" id="reset" type="button">Reset overlay for a new stream</button><span id="resetMsg" class="hint"></span></div>
+      <p class="hint">Clears kills, streaks, crashes, tips, the $BNGD chart and everything from test clicks. Restarting START.bat does the same.</p>
+    </div>
+  </div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const ovUrl=location.origin+'/overlay';$('ovUrl').textContent=ovUrl;
+$('copy').onclick=()=>{navigator.clipboard.writeText(ovUrl).then(()=>{$('copy').textContent='Copied'},()=>{});};
+async function api(p,body){const r=await fetch(p,body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{});return r.headers.get('content-type')?.includes('json')?r.json():r;}
+let haveSources=false;
+async function loadSources(){const s=await api('/api/sources');const st=await api('/api/status');const sel=$('src');haveSources=s.length>0;
+  if(!s.length){sel.innerHTML='<option value="">(not connected to OBS yet · do Step 1)</option>';return;}
+  const guess=st.source||s.find(n=>/war ?dogs|game/i.test(n))||'';
+  sel.innerHTML='<option value="">— pick the source that shows WARDOGS —</option>'+s.map(n=>`<option ${n===guess?'selected':''}>${n.replace(/</g,'&lt;')}</option>`).join('');}
+$('refresh').onclick=loadSources;
+$('connect').onclick=async()=>{const body={obs_host:$('host').value,obs_port:+$('port').value};if($('pw').value)body.obs_password=$('pw').value;
+  $('connect').textContent='Connecting…';await api('/api/config',body);setTimeout(async()=>{await loadSources();$('connect').textContent=haveSources?'Connected':'Connect';},700);};
+$('save').onclick=async()=>{if(!$('src').value){$('saved').textContent='Pick the WARDOGS source first';return;}
+  await api('/api/config',{source:$('src').value,names:$('names').value.split(','),replay_buffer:$('rb').checked});$('saved').textContent='Saved · the picture on the left should show your game in a few seconds';setTimeout(()=>$('saved').textContent='',6000);};
+let paused=false;$('pause').onclick=async()=>{paused=!paused;await api('/api/config',{paused});$('pause').textContent=paused?'Resume reader':'Pause reader';};
+let ver=null;
+async function checkVersion(){try{const v=await api('/api/version');
+  if(ver&&ver!==v.current){location.reload();return;}ver=v.current;$('ver').textContent='v'+v.current;
+  $('updBox').style.display=v.available?'block':'none';
+  if(v.available){$('updTxt').textContent='Update available: v'+v.current+' → v'+v.latest;$('updNotes').textContent=v.notes||'';}
+ }catch(_){}}
+$('updBtn').onclick=async()=>{if(!confirm('Install the update now? The overlay restarts and starts fresh (kills, streaks and the money chart reset). Best done before or between streams.'))return;
+  $('updBtn').disabled=true;$('updBtn').textContent='Updating…';$('updNotes').textContent='Downloading and restarting. This page comes back by itself in about 20 seconds (longer if new packages are needed).';
+  await api('/api/update',{}).catch(()=>{});};
+setInterval(checkVersion,5000);checkVersion();
+$('reset').onclick=async()=>{if(!confirm('Reset the overlay? Kills, streaks, crashes, tips and the money chart all go back to zero.'))return;
+  await api('/api/reset',{});$('log').innerHTML='';$('resetMsg').textContent='Done · fresh start';setTimeout(()=>$('resetMsg').textContent='',5000);};
+$('tests').onclick=e=>{const b=e.target.closest('button');if(b)api('/api/test',JSON.parse(b.dataset.ev));};
+async function poll(){try{const s=await api('/api/status');
+  $('obsPill').className='pill '+(s.obs==='connected'||s.obs==='replay'?'ok':'bad');$('obsTxt').textContent='OBS '+s.obs;
+  $('ovPill').className='pill '+(s.overlays>0?'ok':'bad');$('ovTxt').textContent=s.overlays>0?s.overlays+' overlay connected':'overlay NOT connected (check the OBS browser source URL)';
+  if(s.obs==='connected'&&!haveSources)loadSources();
+  $('fps').textContent=s.fps;$('ms').textContent=s.ms;$('err').textContent=s.error||'';
+  if(document.activeElement!==$('names'))$('names').value=s.names.join(', ');$('rb').checked=s.replay_buffer;
+  if(s.frames)$('shot').style.backgroundImage=`url(/api/snapshot.jpg?${Date.now()})`,$('shot').textContent='';
+ }catch(e){$('obsTxt').textContent='server offline';$('obsPill').className='pill bad';}
+ setTimeout(poll,1500);}
+function line(e){const d=document.createElement('div');const t=new Date().toLocaleTimeString();
+  const cls={kill:'k',selfkill:'d',down:'d',killed_by:'d',xp:'x',cash:'x',state:'s'}[e.type]||'q';d.className=cls;
+  if(e.type==='state'){$('chan').textContent=e.pilot?'PILOT':e.vehicle?'VEHICLE':e.scoped?'SCOPED':'ON FOOT';$('scr').textContent=e.screen.toUpperCase();}
+  if(e.type==='pilot'){$('heli').textContent=(e.spd??'?')+' km/h · '+(e.agl??'?')+' m';return;}
+  if(e.type==='hello'||e.type==='reset')return;
+  const {t:_,...rest}=e;d.textContent=t+'  '+e.type.toUpperCase()+'  '+JSON.stringify(rest);const l=$('log');l.prepend(d);while(l.children.length>200)l.lastChild.remove();}
+function ws(){const w=new WebSocket('ws://'+location.host+'/ws');w.onmessage=m=>{try{line(JSON.parse(m.data))}catch(_){}};w.onclose=()=>setTimeout(ws,2000);}
+loadSources().catch(()=>{});poll();ws();
+</script>
+</body>
+</html>
