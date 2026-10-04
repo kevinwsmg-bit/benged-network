@@ -1,2 +1,2 @@
-1.6.2
-Works with the game fullscreen at 1440p (or any resolution): reads the full-size picture and shrinks it properly.
+1.6.3
+Fullscreen 1440x900 (16:10) and stretched resolutions: the reader keeps your picture's real shape and sizes the HUD by height.

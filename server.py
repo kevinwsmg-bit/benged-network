@@ -149,10 +149,10 @@ class Capture(threading.Thread):
                 raw = self.grab()
                 frame = cv2.imdecode(np.frombuffer(raw, np.uint8), cv2.IMREAD_COLOR)
                 full = f"{frame.shape[1]}x{frame.shape[0]}"
-                if frame.shape[1] > 1280:
-                    # shrink here with pixel averaging: OBS's own scaler drops pixels at 2:1
-                    # (1440p -> 720p) and chops up the thin HUD text the reader looks for
-                    frame = cv2.resize(frame, (1280, round(frame.shape[0] * 1280 / frame.shape[1])),
+                if frame.shape[0] > 720:
+                    # shrink here with pixel averaging to 720 tall (the game sizes its HUD by height).
+                    # OBS's own scaler drops pixels at 2:1 (1440p -> 720p) and chops up thin HUD text
+                    frame = cv2.resize(frame, (round(frame.shape[1] * 720 / frame.shape[0]), 720),
                                        interpolation=cv2.INTER_AREA)
                     raw = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 80])[1].tobytes()
                 self.last_jpg = raw

@@ -195,12 +195,15 @@ class Reader:
     def process(self, frame, t):
         self.t = t
         ev = []
-        if frame.shape[1] != 1280:
-            frame = cv2.resize(frame, (1280, 720), interpolation=cv2.INTER_AREA)
+        if frame.shape[0] != 720:
+            # the game sizes its HUD by screen height: scaling every picture to 720 tall keeps the HUD
+            # the same size whatever the shape (16:9 -> 1280x720, 16:10 1440x900 -> 1152x720)
+            frame = cv2.resize(frame, (round(frame.shape[1] * 720 / frame.shape[0]), 720),
+                               interpolation=cv2.INTER_AREA)
         if self.mask:
             frame = frame.copy()
             for x0, y0, x1, y1 in self.mask:
-                frame[int(y0 * 720):int(y1 * 720), int(x0 * 1280):int(x1 * 1280)] = 0
+                frame[int(y0 * 720):int(y1 * 720), int(x0 * frame.shape[1]):int(x1 * frame.shape[1])] = 0
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         prev_state = dict(self.state)
 
@@ -365,13 +368,17 @@ class Reader:
 
     def _find_gauges(self, gray, thresh=0.8):
         """Heli SPD + ALT boxes (pilot seat only). Ground vehicles have an SPD box but no ALT box."""
-        sp = self.tpl.locate(gray, "spd_label", stop=0.9)
-        if sp[0] < thresh:
-            return None
+        # ALT is the stronger match; then SPD must sit exactly where it belongs, left of ALT on the
+        # same row. That position check is strict, so SPD itself may score a little lower.
         al = self.tpl.locate(gray, "alt_label", stop=0.9)
-        if al[0] < thresh or al[4] != sp[4]:
+        if al[0] < thresh:
             return None
-        if abs((al[1] - sp[1]) - self.ALT_DX[sp[4]] * sp[3]) > 14 or abs(al[2] - sp[2]) > 5:
+        xs = al[5] / al[3]
+        sp = self.tpl.locate_near(gray, "spd_label", al[1] - self.ALT_DX[al[4]] * al[5], al[2],
+                                  al[3], al[4], round(xs, 3) if round(xs, 3) in (1.111, 1.333) else 1.0)
+        if sp[0] < thresh - 0.08:
+            return None
+        if abs((al[1] - sp[1]) - self.ALT_DX[sp[4]] * sp[5]) > 14 or abs(al[2] - sp[2]) > 5:
             return None
         return sp, al
 
@@ -408,14 +415,14 @@ class Reader:
                   ("alt", 0): (14, 29, 66), ("alt", 1): (14, 29, 54)}
 
     def _gauge_text(self, frame, key, match):
-        _, x, y, s, v = match
+        _, x, y, s, v, sx = match
         top, bot, right = self.GAUGE_LINE[(key, v)]
-        return read_line(frame[int(y + top * s):int(y + bot * s), max(0, x - 2):int(x + right * s)])[0]
+        return read_line(frame[int(y + top * s):int(y + bot * s), max(0, x - 2):int(x + right * sx)])[0]
 
     def _read_vehicle_speed(self, frame, ev):
         """Ground vehicles: '79  KM/H' under the SPD box (number first)."""
-        _, x, y, s, _ = self._vgauge
-        txt = read_line(frame[int(y + 14 * s):int(y + 29 * s), max(0, x - 2):int(x + 56 * s)])[0]
+        _, x, y, s, _, sx = self._vgauge
+        txt = read_line(frame[int(y + 14 * s):int(y + 29 * s), max(0, x - 2):int(x + 56 * sx)])[0]
         m = re.match(r"\s*([\dOoIlSB]{1,3})", txt)
         n = _digits(m.group(1)) if m else ""
         spd = int(n) if n.isdigit() else None
