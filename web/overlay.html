@@ -1093,10 +1093,17 @@ function ticker(){const items=[['TONIGHT',S.kills+' kills · '+S.crashes+' heli 
 const SHOP={trip:null,trips:[],t0:Date.now(),total:0};
 const SHOP_CAPS=[[15,'JUST BROWSING'],[30,'COMPARING PRICES'],[60,'ASKING FOR A MANAGER'],[90,'MALL WALKER'],[120,'SECURITY HAS BEEN CALLED'],[1e9,'HE LIVES HERE NOW']];
 function mmss(s){s=Math.floor(s);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');}
-function shopEnter(){SHOP.trip={t0:Date.now(),spent:0};SFX.jingle();}
-function shopLeave(){const tr=SHOP.trip;if(!tr)return;SHOP.trip=null;const dur=(Date.now()-tr.t0)/1000;
- SHOP.trips.push({dur,spent:tr.spent});SHOP.total+=dur;
- if(dur>3)card('THANK YOU FOR SHOPPING','#ff2d9b',mmss(dur)+' in the store · '+(tr.spent?money(tr.spent)+' spent':'window shopping only'));}
+function shopEnter(){SHOP.trip={t0:Date.now(),spent:0,w0:S.gotCash?S.wallet:null};SFX.jingle();}
+function shopLeave(){const tr=SHOP.trip;if(!tr)return;SHOP.trip=null;tr.dur=(Date.now()-tr.t0)/1000;
+ /* the game closes the vendor the instant he buys, so the wallet drop shows up just after he leaves:
+    wait up to 6 s for that money read (shopSettle), then print the receipt */
+ if(tr.w0!=null&&typeof LIVE!=='undefined'&&LIVE){SHOP.closing=tr;clearTimeout(SHOP.ct);SHOP.ct=setTimeout(()=>shopReceipt(tr),6000);}else shopReceipt(tr);}
+function shopSettle(wallet){const tr=SHOP.closing;if(!tr)return;const extra=tr.w0-wallet-tr.spent;
+ if(extra>0&&extra<60000){tr.spent+=extra;card('SOLD!','#ff2d9b',money(extra)+' at the register');SFX.kaching();}
+ clearTimeout(SHOP.ct);setTimeout(()=>shopReceipt(tr),1800);}
+function shopReceipt(tr){if(tr.done)return;tr.done=true;if(SHOP.closing===tr)SHOP.closing=null;
+ SHOP.trips.push({dur:tr.dur,spent:tr.spent});SHOP.total+=tr.dur;
+ if(tr.dur>3||tr.spent)card('THANK YOU FOR SHOPPING','#ff2d9b',mmss(tr.dur)+' in the store · '+(tr.spent?money(tr.spent)+' spent':'window shopping only'));}
 function shopBuy(amount){if(!SHOP.trip||amount<=0)return;SHOP.trip.spent+=amount;
  const s=$('sold');s.textContent='SOLD! −'+money(amount);s.classList.remove('go');void s.offsetWidth;s.classList.add('go');SFX.kaching();}
 function shopRender(){const tr=SHOP.trip;if(!tr)return;const now=Date.now(),dur=(now-tr.t0)/1000;
@@ -1266,6 +1273,7 @@ S.startWallet=S.wallet;S.low=0;S.revivedAt=-999;
    addXP(role,e.amount||0);drawRadar(false);},
   cash(e){if(S.lifeW0==null||S.newLife){S.lifeW0=e.wallet;S.newLife=false;}
    if(e.match<0)$('tlTxt').innerHTML='BENGED IS <b>'+money(-e.match)+'</b> IN DEBT. One confirmed kill (<b>$2,000</b>) could change his life.';
+   if(SHOP.closing&&S.gotCash)shopSettle(e.wallet);   /* purchase that closed the vendor */
    if(S.inter==='shop'&&S.gotCash&&e.wallet<S.wallet&&S.wallet-e.wallet<60000)shopBuy(S.wallet-e.wallet);  /* bought something */
    S.cash=e.match;S.wallet=e.wallet;if(!S.gotCash){S.gotCash=true;S.startWallet=e.wallet;}renderCash();
    if(e.match<0&&e.match<S.low){S.low=e.match;stage.classList.add('broke');SFX.broke();clearTimeout(S._bt);S._bt=setTimeout(()=>stage.classList.remove('broke'),20000);}

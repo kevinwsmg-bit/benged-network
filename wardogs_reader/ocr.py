@@ -20,6 +20,21 @@ def engine():
     return _ocr
 
 
+_boxes = None
+
+
+def read_boxes(img):
+    """Find the separate text boxes in a small image and read each (left to right):
+    [(x, text, conf)]. ~100 ms on the money strip. The 'max' limit stops RapidOCR from
+    blowing a small strip up to 736 px first (that made it take ~1 s)."""
+    global _boxes
+    if _boxes is None:
+        _boxes = RapidOCR(intra_op_num_threads=2, inter_op_num_threads=1,
+                          det_limit_side_len=736, det_limit_type="max")
+    res, _ = _boxes(img, use_det=True, use_cls=False, use_rec=True)
+    return sorted((min(p[0] for p in b), t, float(c)) for b, t, c in (res or []))
+
+
 def stroke_mask(img, thresh=38):
     """Bright thin strokes (HUD text and icons), insensitive to smooth bright sky."""
     g = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img

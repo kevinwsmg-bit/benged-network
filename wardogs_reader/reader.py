@@ -30,7 +30,7 @@ import cv2
 import numpy as np
 
 from .regions import crop
-from .ocr import read_line, read_lines, norm, stroke_mask, CachedLines
+from .ocr import read_line, read_lines, read_boxes, norm, stroke_mask, CachedLines
 from .templates import Templates
 
 IGNORE = ("ROTARYVEHICLE", "OCCUPIEDSEATS", "LAKOTA", "UNLOCKED", "STORAGE", "BACKPACK", "SQUAD", "VEHICLEINVENTORY")
@@ -237,7 +237,7 @@ class Reader:
                 if self._out >= 3:                   # 1.5 s
                     self._pilot_last = self._vehicle_last = -999
         if self.state["screen"] == "vendor" and self._due("vcash", 0.5):
-            self._read_vendor_wallet(frame, ev)          # purchases = wallet going down in the store
+            self._read_cash(frame, ev, need=2)          # purchases = wallet going down in the store
         if in_game:
             if self._due("cash", 1.0):
                 self._read_cash(frame, ev)
@@ -317,52 +317,44 @@ class Reader:
         return Counter(names).most_common(1)[0][0] if names else ""
 
     # ------------------------------------------------------------- HUD text
-    def _read_cash(self, frame, ev):
-        text, _ = read_line(crop(frame, "cash"))
-        text = _fix_money_text(text)
-        vals = [_money(s, n) for s, n in MONEY_RE.findall(text)]
+    _MONEY_BOX = re.compile(r"^(-?)\s*[$S]\s*(\d{1,3}(?:[.,]\d{3})+|\d{1,7})$")
+
+    def _money_boxes(self, frame):
+        """(match, wallet) from the money boxes at the top right: [-$9,203 v][$1,842,031] (+ [125] on
+        menus/vendors). Each box is found and read on its own, so the two amounts never run together.
+        The match box's minus sign sometimes doesn't read; its red marker means negative."""
+        h, w = frame.shape[:2]
+        roi = frame[0:int(0.055 * h), int(0.72 * w):w]
+        up = cv2.resize(roi, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
+        vals = []
+        for x, t, c in read_boxes(up):
+            u = t.upper().replace(" ", "").translate(str.maketrans("OQDIL|", "000111"))
+            m = self._MONEY_BOX.match(u)
+            if m and c > 0.5:
+                vals.append((x / 2, m.group(1) == "-", int(re.sub(r"[.,]", "", m.group(2)))))
         if len(vals) < 2:
+            return None
+        (x0, neg, match), (x1, _, wallet) = vals[-2], vals[-1]
+        if not neg:
+            seg = roi[:, int(x0):int(x1)]
+            b, g, r = (seg[:, :, i].astype(int) for i in range(3))
+            neg = int(((r > 150) & (g < 90) & (b < 90)).sum()) > 12
+        return (-match if neg else match), wallet
+
+    def _read_cash(self, frame, ev, need=3):
+        """Match money + wallet. In game: 3 of the last 5 reads must agree. At a vendor (need=2) it
+        reads faster so a purchase registers right away."""
+        mw = self._money_boxes(frame)
+        if mw is None:
             self._cash_miss += 1
             return
         self._cash_miss = 0
-        cand = (vals[-2], vals[-1])
-        self._cash_hist = (getattr(self, "_cash_hist", []) + [cand])[-5:]
+        self._cash_hist = (getattr(self, "_cash_hist", []) + [mw])[-5:]
         best, n = Counter(self._cash_hist).most_common(1)[0]
-        if n >= 3 and best != self._cash:
+        if n >= need and best != self._cash:
             if self._cash is None or abs(best[1] - self._cash[1]) < 60000:
                 self._cash = best
                 ev.append(dict(type="cash", match=best[0], wallet=best[1]))
-
-    def _read_vendor_wallet(self, frame, ev):
-        """Vendor screens show [ $0 ] [ $9,649 ] [ 120 ] side by side at the top right: split the strip
-        into its boxes (gaps between bright columns), read each, and take the biggest $ amount."""
-        h, w = frame.shape[:2]
-        roi = frame[0:int(0.055 * h), int(0.74 * w):w]
-        on = (cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY) > 150).sum(axis=0) > 0
-        vals, x = [], 0
-        while x < len(on):
-            if on[x]:
-                a, gap = x, 0
-                while x < len(on) and gap < 4:
-                    gap = 0 if on[x] else gap + 1
-                    x += 1
-                b = x - gap
-                if b - a >= 14:
-                    txt = _fix_money_text(read_line(roi[:, max(0, a - 2):b + 2])[0])
-                    vals += [_money(s, n) for s, n in MONEY_RE.findall(txt)]
-            x += 1
-        if not vals:
-            return
-        wallet = max(vals)
-        self._vw_hist = (getattr(self, "_vw_hist", []) + [wallet])[-3:]
-        best, n = Counter(self._vw_hist).most_common(1)[0]
-        old = self._cash[1] if self._cash else None
-        # two matching reads in a row (faster than in-game cash, so the ka-ching lands on time)
-        if n >= 2 and best != old and (old is None or abs(best - old) < 60000):
-            match = self._cash[0] if self._cash else 0
-            self._cash = (match, best)
-            self._cash_hist = []
-            ev.append(dict(type="cash", match=match, wallet=best, via="vendor"))
 
     _LOOK = str.maketrans("OoQDIl|SZB", "0000111528")
     _ENTRY_XP = re.compile(r"([0-9OoQDIl|SZB]{2,4})\s*X\s*P\W*$")
