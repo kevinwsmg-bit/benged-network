@@ -152,6 +152,9 @@ class Reader:
         self.t = 0.0
         self.next = {}
         self.xp_lines = CachedLines(max_w=440)
+        self.cf_lines = CachedLines(max_w=330, max_new=5)
+        self._cf, self._cf_raw, self._cf_seen = [], None, -999
+        self._cf_total, self._cf_tcand, self._cf_kind = 0, None, None
         self.kf_lines = CachedLines(max_w=470, max_new=3)
         self.xp = LineTracker()
         self.kf = LineTracker(hold=7.0)
@@ -230,6 +233,7 @@ class Reader:
                 self._read_cash(frame, ev)
             if self._due("xp", 0.5):
                 self._read_xp(frame, ev)
+            self._read_centerfeed(frame, ev)
             if self._due("popup", 0.25):
                 self._read_popup(frame, ev)
             if self._gauges and self._due("gauges", 1.0):
@@ -349,6 +353,102 @@ class Reader:
             self._cash = (match, best)
             self._cash_hist = []
             ev.append(dict(type="cash", match=match, wallet=best, via="vendor"))
+
+    _LOOK = str.maketrans("OoQDIl|SZB", "0000111528")
+    _ENTRY_XP = re.compile(r"([0-9OoQDIl|SZB]{2,4})\s*X\s*P\W*$")
+    _ENTRY_MONEY = re.compile(r"[$S]\s*([0-9OoIlZB][0-9OoIlZB.,]{1,6})\W*$")
+
+    @classmethod
+    def _feed_entry(cls, raw):
+        """'PASSENGER SURVIVED 100XP' -> (kind, 'xp', 100); '... +$500' -> (kind, '$', 500).
+        Reads the amount from the end of the line only (OCR often glues it to the words).
+        None for the '+$2,500' running total and other non-entries."""
+        n = norm(raw)
+        if len(re.sub(r"[^A-Z]", "", n)) < 8:
+            return None
+        kind = classify(n) or re.sub(r"[^A-Z]", "", n)[:10]
+        u = raw.upper()
+        m = cls._ENTRY_XP.search(u)
+        if m:
+            v = m.group(1).translate(cls._LOOK)
+            return kind, "xp", int(v) if v.isdigit() else 0
+        m = cls._ENTRY_MONEY.search(u)
+        if m:
+            v = re.sub(r"[.,]", "", m.group(1)).translate(cls._LOOK)
+            return kind, "$", int(v) if v.isdigit() else 0
+        return kind, "?", 0
+
+    # XP paid per $ for rewards whose money goes into the boxed running total (measured on
+    # benged's clips: PASSENGER SURVIVED $500 = 100XP and $1,000 = 200XP; TACTICAL DEPLOYMENT
+    # $195 = 50XP and $90 = 25XP)
+    XP_PER_DOLLAR = {"passenger": 0.2, "deploy": 0.265}
+    _TOTAL = re.compile(r"^\W*\+?\W*[$S]\s*([0-9OoIlZB][0-9OoIlZB.,]{0,8})\W*$")
+
+    def _read_centerfeed(self, frame, ev):
+        """XP from the bottom-centre reward list (the boxed '+$3,500' running total and the newest
+        ~4 entries under it, which scroll up; money and XP are separate entries).
+        * passengers / tactical deployments: XP = how much the running total grew x XP_PER_DOLLAR
+          (the total reads reliably even when single lines don't)
+        * everything else: XP entries ('BUILDING COMPLETE 3XP') counted as they appear"""
+        lines = sorted(self.cf_lines.read(crop(frame, "centerfeed")), key=lambda x: x[2][0])
+        total, entries = None, []
+        for t, c, _ in lines:
+            if c < 0.4:
+                continue
+            m = self._TOTAL.match(t.upper())
+            if m and total is None:
+                v = re.sub(r"[.,]", "", m.group(1)).translate(self._LOOK)
+                total = int(v) if v.isdigit() else None
+                continue
+            e = self._feed_entry(t)
+            if e:
+                entries.append(e)
+        if total is None and not entries:
+            if self.t - self._cf_seen > 1.5:          # list gone: next one is a new burst
+                self._cf, self._cf_raw, self._cf_total, self._cf_kind = [], None, 0, None
+            return
+        self._cf_seen = self.t
+        kinds = [k for k, _, _ in entries if k in self.XP_PER_DOLLAR]
+        if kinds:
+            kind = max(set(kinds), key=kinds.count)
+            # a different reward type twice in a row = a new list right after the last one
+            if kind != self._cf_kind and kind == getattr(self, "_cf_kind_cand", None) and self._cf_kind:
+                self._cf_total = 0
+                self._cf_kind = kind
+            elif self._cf_kind is None:
+                self._cf_kind = kind
+            self._cf_kind_cand = kind
+
+        # 1) running total (needs the same value twice in a row)
+        if total is not None:
+            if total == self._cf_tcand and total != self._cf_total:
+                if total < self._cf_total:            # a new list started without a gap
+                    self._cf_total = 0
+                grew = total - self._cf_total
+                if self._cf_kind in self.XP_PER_DOLLAR:   # type unknown yet: keep the baseline, count it all later
+                    if 0 < grew <= 20000:
+                        ev.append(dict(type="xpgain", kind=self._cf_kind,
+                                       amount=round(grew * self.XP_PER_DOLLAR[self._cf_kind])))
+                    self._cf_total = total
+            self._cf_tcand = total
+
+        # 2) other rewards: count their XP entries (two matching reads; new at the bottom)
+        other = [e for e in entries if e[0] not in self.XP_PER_DOLLAR]
+        if not other:
+            return
+        prev_raw, self._cf_raw = self._cf_raw, other
+        if prev_raw != other:
+            return
+        tr = self._cf
+        k = 0
+        for n in range(min(len(tr), len(other)), 0, -1):
+            if tr[len(tr) - n:] == other[:n]:
+                k = n
+                break
+        for kind, typ, val in other[k:]:
+            if typ == "xp" and 0 < val <= 5000:
+                ev.append(dict(type="xpgain", kind=kind, amount=val))
+        self._cf = (tr + other[k:])[-8:]
 
     def _read_xp(self, frame, ev):
         lines = self.xp_lines.read(crop(frame, "xpfeed"))

@@ -329,6 +329,8 @@ header.top p{margin:0;color:var(--muted);max-width:74ch;line-height:1.45}
 .bp svg{width:100%;height:118px}
 .bp .wall{stroke:#fff;stroke-width:4;fill:none;stroke-dasharray:200;stroke-dashoffset:200;transition:stroke-dashoffset .8s;filter:drop-shadow(0 0 4px #9fc3ff)}
 .bp .wall.on{stroke-dashoffset:0}
+.bpclk{margin-top:6px;font:700 13px var(--f-ui);letter-spacing:.12em;color:#cfe0ff;display:flex;justify-content:space-between;align-items:center}
+.bpclk b{font:400 26px/1 var(--f-lcd);color:#ffb000;letter-spacing:.04em}
 .prog{height:14px;background:#111;margin-top:6px;position:relative}
 .prog i{position:absolute;left:0;top:0;bottom:0;background:repeating-linear-gradient(-45deg,#ffb000 0 10px,#e08a00 10px 20px);transition:width .6s}
 /* driver panel */
@@ -601,7 +603,7 @@ body.live.offline .livebadge{display:block}
                 <div class="betbar"><div class="land" style="flex:62">!land 62%</div><div class="crash" style="flex:38">!crash 38%</div></div></div></div></div>
           </div>
           <div class="mp mp-builder">
-            <div class="card bp"><h4 style="color:#cfe0ff">Live blueprint <span id="fobPct">FOB 0%</span></h4><svg viewBox="0 0 380 170" id="bpSvg"></svg><div class="prog"><i id="prog"></i></div></div>
+            <div class="card bp"><h4 style="color:#cfe0ff">Live blueprint <span id="fobPct">FOB 0%</span></h4><svg viewBox="0 0 380 170" id="bpSvg"></svg><div class="prog"><i id="prog"></i></div><div class="bpclk">TIME BUILDING THIS MATCH <b id="bTime">00:00:00</b></div></div>
             <div class="card">
               <div class="row"><span>Things built</span><span id="bBuilt">0</span></div>
               <div class="row"><span>Wage clock</span><span id="bWage">$0/min</span></div>
@@ -775,7 +777,7 @@ const CH={
 };
 const HOSTS=['pilot','medic','builder','driver'];
 const THR={pilot:'15 s in the pilot seat',medic:'2 revives',builder:'2 builds',driver:'10 s in a vehicle'};
-const T=LIVE?1:20, QUIET=30; // game s per real s; seconds of inactivity before falling back to Combat
+const T=LIVE?1:20, QUIET=30, EXIT=6; // EXIT: seconds after leaving a heli/vehicle before its channel ends // game s per real s; seconds of inactivity before falling back to Combat
 const ROLES=['ASSAULT','MEDIC','RECON','SUPPORT','DRIVER','PILOT'];
 
 /* ---------- state ---------- */
@@ -783,7 +785,7 @@ const S={gt:0,act:'idle',host:'combat',hostSince:0,lastCard:-999,inter:null,prev
  cash:14846,wallet:811781,kills:0,lifeKills:0,lifeStart:0,lifeCash:0,lastKillGt:-999,deaths:0,crashes:0,life:5,lastCrashGt:-872,aura:0,jack:12500,
  builds:[],supply:[],revive:[],flyStart:null,flyLast:-999,driveStart:null,driveLast:-999,driveTot:0,
  totBuilds:0,totRev:0,osha:0,drives:0,td:0,fumbles:0,zoneCash:0,tipsAmt:0,tipsIn:0,tipsInN:0,longest:0,recent:[],
- xp:{ASSAULT:0,MEDIC:0,RECON:0,SUPPORT:0,DRIVER:0,PILOT:0},lvlUps:0,revLife:0,mk:0,md:0,ma:0,flightClean:0,lvl:{ASSAULT:11,MEDIC:6,RECON:7,SUPPORT:13,DRIVER:5,PILOT:9},
+ xp:{ASSAULT:0,MEDIC:0,RECON:0,SUPPORT:0,DRIVER:0,PILOT:0},lvlUps:0,buildTime:0,revLife:0,mk:0,md:0,ma:0,flightClean:0,lvl:{ASSAULT:11,MEDIC:6,RECON:7,SUPPORT:13,DRIVER:5,PILOT:9},
  stint:{kills:0,builds:0,revives:0,crashes:0,supply:0},pendingFlip:false,killers:{},cod:{building:38,flying:22,fighting:40},
  rulings:[14,3],spd:120,agl:60,hdg:90,roll:0,pitch:0,fdr:[],money:[],sound:false,ep:37,epFmt:0,callIdx:0,startWallet:811781};
 
@@ -836,16 +838,16 @@ function cashAdd(v){S.cash+=v;S.wallet+=v;S.lifeCash+=v;if(v>0)S.jack+=Math.roun
 function within(arr,win){const t=S.gt;let n=0;for(let i=arr.length-1;i>=0&&t-arr[i]<=win;i--)n++;return n}
 function lastOf(arr){return arr.length?arr[arr.length-1]:-999}
 function evidence(){const t=S.gt,e={};
- if(S.flyStart!=null&&t-S.flyLast>QUIET)S.flyStart=null;
+ if(S.flyStart!=null&&t-S.flyLast>EXIT)S.flyStart=null;
  e.pilot=S.flyStart==null?0:Math.min(1,(S.flyLast-S.flyStart)/NEED.pilot);
- if(S.driveStart!=null&&t-S.driveLast>QUIET)S.driveStart=null;
+ if(S.driveStart!=null&&t-S.driveLast>EXIT)S.driveStart=null;
  e.driver=S.driveStart==null?0:Math.min(1,(S.driveLast-S.driveStart)/NEED.driver);
  if(S.buildStart!=null&&t-S.buildLast>QUIET)S.buildStart=null;
  e.builder=(S.buildStart!=null)?1:t-lastOf(S.builds)>QUIET?0:Math.min(1,within(S.builds,90)/NEED.builder);
  e.medic=t-lastOf(S.revive)>QUIET?0:Math.min(1,within(S.revive,90)/NEED.medic);
  return e;}
 function alive(m){const t=S.gt;if(m==='combat')return true;
- if(m==='pilot')return S.flyStart!=null&&t-S.flyLast<=QUIET; if(m==='driver')return S.driveStart!=null&&t-S.driveLast<=QUIET;
+ if(m==='pilot')return S.flyStart!=null&&t-S.flyLast<=EXIT; if(m==='driver')return S.driveStart!=null&&t-S.driveLast<=EXIT;
  if(m==='builder')return t-lastOf(S.builds)<=QUIET||(S.buildStart!=null&&t-S.buildLast<=QUIET); if(m==='medic')return t-lastOf(S.revive)<=QUIET; return false;}
 
 let acc={build:0,sup:0,rev:0,tick:0,sample:0}, last=performance.now();
@@ -863,6 +865,7 @@ function loop(now){
  if(a==='reviving'&&!LIVE){acc.rev+=rdt;if(acc.rev>1.2){acc.rev=0;doRevive(true);}}
  if(a==='zone'&&!LIVE){acc.tick+=rdt;if(acc.tick>1.4){acc.tick=0;S.zoneCash+=160;S.xp.ASSAULT+=1;feed('CONTROL ZONE PRESENCE +$160',ICON.flag);cashAdd(160);log('CONTROL ZONE PRESENCE +$160 (counts as combat)');}}
  if(a==='flying')S.flightClean+=rdt*T;
+ if(a==='building')S.buildTime+=rdt*T;
  if(a==='sniping'&&!LIVE)S.xp.RECON+=rdt*.5;
  if(a==='shopping'&&typeof LIVE==='undefined'){acc.buy=(acc.buy||0)+rdt;if(acc.buy>2.4){acc.buy=0;if(Math.random()<.55){const p=pick([150,300,450,1500,2200]);cashAdd(-p);shopBuy(p);}}}
  // screen modes
@@ -1110,7 +1113,7 @@ function render(e){
  const sk=$('streak');sk.classList.toggle('on',S.lifeKills>=2&&mode!=='dead');sk.style.setProperty('--fs',Math.min(1.9,.8+S.lifeKills*.2));
  $('streakN').textContent=S.lifeKills;$('streakL').textContent=S.lifeKills>=5?'INFERNO':S.lifeKills>=4?'UNHINGED':S.lifeKills>=3?'ON FIRE':'WARMING UP';
  $('chipClk').textContent=S.mk+' / '+S.md+' / '+S.ma;$('chipKda').textContent='KDA '+((S.mk+S.ma)/Math.max(1,S.md)).toFixed(1);
- $('signClk').textContent=fmtH(S.flightClean);$('signLife').textContent='HELI INCIDENTS THIS STREAM: '+S.crashes;$('cRevLife').textContent=S.revLife;
+ $('signClk').textContent=fmtH(S.flightClean);$('signLife').textContent='HELI INCIDENTS THIS STREAM: '+S.crashes;$('cRevLife').textContent=S.revLife;$('bTime').textContent=fmtH(S.buildTime);
  $('jack').textContent=S.jack.toLocaleString();
  const now=performance.now();
  if(now-tickT>4000){tickT=now;ticker();}
@@ -1189,13 +1192,13 @@ S.startWallet=S.wallet;S.low=0;S.revivedAt=-999;
  const H={
   state(e){
    if(e.screen==='vendor'){setAct('shopping',true);return;}
-   if(e.screen==='loading'){if(S.inter==='dead')S.inter=null;S.mk=S.md=S.ma=0;S.flightClean=0;S.revLife=0;setAct('loading',true);return;}   /* new match */
+   if(e.screen==='loading'){if(S.inter==='dead')S.inter=null;S.mk=S.md=S.ma=0;S.flightClean=0;S.buildTime=0;S.revLife=0;setAct('loading',true);return;}   /* new match */
    if(e.screen==='down'||e.screen==='map'||e.screen==='menu')return;
    if(S.inter==='dead')return;
    setAct(e.pilot?'flying':e.vehicle?'driving':e.hammer?'building':e.scoped?'sniping':'idle',true);
    if(e.hurt){S.hurtUntil=S.gt+24;if(S.host!=='combat')cflash();}
   },
-  kill(e){if(S.inter!=='dead'){addXP((e.dist||0)>=100?'RECON':'ASSAULT',100);kill({d:e.dist,v:e.victim||'',w:e.weapon});}},
+  kill(e){if(S.inter!=='dead'){kill({d:e.dist,v:e.victim||'',w:e.weapon});}},
   selfkill(e){if(e.pilot||S.host==='pilot'){S.flyLast=S.gt;crashLive();}},
   down(e){if(S.gt-(S.lastDown||-99)<20)return;S.lastDown=S.gt;
    const wasFlying=S.host==='pilot'&&S.act==='flying';
@@ -1212,8 +1215,7 @@ S.startWallet=S.wallet;S.low=0;S.revivedAt=-999;
   died(){S.md++;},
   xp(e){const t=S.gt,k=e.kind;
    /* six-role XP: the real XP number from the feed (money-only lines count a tenth of the $) */
-   let role=XPROLE[k];if(k==='assist')role=t-S.flyLast<120?'PILOT':'SUPPORT';
-   if(role)addXP(role,e.amount||Math.round(Math.abs(e.money||0)/10)||5);
+
    if(k==='build'||k==='build_complete'){if(k==='build_complete'||!S.builds.length||t-S.builds[S.builds.length-1]>10){S.builds.push(t);S.totBuilds++;S.stint.builds++;}
      if(S.host==='builder')burst(1690,760,14,['#ffb000','#fff','#9fc3ff'],260,500,4,.8);}
    else if(k==='revive'||k==='revive_assist')doRevive(true);
@@ -1240,6 +1242,12 @@ S.startWallet=S.wallet;S.low=0;S.revivedAt=-999;
    else if(k==='bribe')toast('BRIBE · '+money(Math.abs(e.money||0)));
   },
   speed(e){if(e.spd!=null)S.spd=e.spd;},
+  /* six-role XP: every XP entry in the bottom-centre reward list, added up. Unknown entries
+     (e.g. kill XP lines) go to the role of the channel he's on. */
+  xpgain(e){const k=e.kind,t=S.gt;let role=XPROLE[k];
+   if(k==='assist')role=t-S.flyLast<120?'PILOT':'SUPPORT';
+   if(!role)role=(S.host==='combat'&&S.act==='sniping')?'RECON':(CH[S.host].role||'ASSAULT');
+   addXP(role,e.amount||0);drawRadar(false);},
   cash(e){if(S.inter==='shop'&&S.gotCash&&e.wallet<S.wallet&&S.wallet-e.wallet<60000)shopBuy(S.wallet-e.wallet);  /* bought something */
    S.cash=e.match;S.wallet=e.wallet;if(!S.gotCash){S.gotCash=true;S.startWallet=e.wallet;}renderCash();
    if(e.match<0&&e.match<S.low){S.low=e.match;stage.classList.add('broke');SFX.broke();clearTimeout(S._bt);S._bt=setTimeout(()=>stage.classList.remove('broke'),20000);}

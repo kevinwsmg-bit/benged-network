@@ -9,6 +9,9 @@ REGIONS = {
     "cash": (0.76, 0.0, 1.0, 0.048),
     # top-right under the cash: XP / money event feed, right-aligned lines
     "xpfeed": (0.66, 0.045, 1.0, 0.24),
+    # bottom centre, above the heli gauges: the reward list ("PASSENGER SURVIVED +$500",
+    # "... 100XP"). Money and XP are separate entries; the newest 4 show and scroll up.
+    "centerfeed": (0.36, 0.70, 0.64, 0.90),
     # left side, mid-screen: lobby kill feed ("KILLER [weapon] [NN m] VICTIM")
     "killfeed": (0.0, 0.27, 0.36, 0.64),
     # centre, just under the crosshair: "+$2,000 CONFIRMED" kill popup
