@@ -14,7 +14,9 @@ REGIONS = {
     # centre, just under the crosshair: "+$2,000 CONFIRMED" kill popup
     "popup": (0.40, 0.55, 0.60, 0.74),
     # right edge: vehicle / heli control hints (COLLECTIVE LIFT = pilot seat)
-    "hints": (0.78, 0.38, 1.0, 0.70),
+    "hints": (0.78, 0.38, 1.0, 0.78),
+    # bottom-right: equipped item name ("LARGE HAMMER // BUILD SUPPLIES" = building)
+    "weapon": (0.78, 0.80, 1.0, 0.89),
     # bottom strip: GIVE UP / CALL FOR HELP (downed), map controls (dead / redeploy)
     "bottom": (0.08, 0.88, 0.92, 1.0),
     # right-bottom: VIEW DAMAGE LOG + who hit him

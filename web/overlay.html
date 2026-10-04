@@ -26,7 +26,8 @@ header.top p{margin:0;color:var(--muted);max-width:74ch;line-height:1.45}
 .fsbtn{position:absolute;right:10px;top:10px;z-index:5;background:rgba(8,9,7,.8);border:1px solid #566048;color:#fff;font:700 13px var(--f-ui);letter-spacing:.08em;padding:6px 10px;border-radius:4px;opacity:.75}
 .fsbtn:hover{opacity:1}
 .stage-wrap:fullscreen .fsbtn{display:none}
-.stage{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0;overflow:hidden;font-family:var(--f-ui);color:#fff}
+@property --ch{syntax:'<color>';inherits:true;initial-value:#ff3b3b}
+.stage{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0;overflow:hidden;font-family:var(--f-ui);color:#fff;transition:--ch .7s ease}
 .abs{position:absolute}
 
 /* ---- simulated game capture ---- */
@@ -205,6 +206,7 @@ header.top p{margin:0;color:var(--muted);max-width:74ch;line-height:1.45}
 
 /* ---- cam ---- */
 .cam{left:24px;top:22px;width:360px;height:203px;border:3px solid var(--ch);box-shadow:0 0 24px color-mix(in srgb,var(--ch) 50%,transparent);background:radial-gradient(60px 70px at 50% 44%,#c79b82 0 98%,transparent 100%),radial-gradient(140px 90px at 50% 112%,#23262b 0 98%,transparent 100%),linear-gradient(135deg,#6b2330,#3b1b24 60%,#2a1a20);transition:border-color .5s,border-radius .5s,filter .5s}
+.cam{transition:border-color .6s,border-width .45s,border-radius .55s,box-shadow .6s,filter .7s}
 .cam::before{content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit}
 .cam::after{content:"benged cam";position:absolute;right:10px;bottom:6px;font:600 13px var(--f-ui);opacity:.6;letter-spacing:.06em}
 .cam .tag{position:absolute;left:-3px;bottom:-38px;background:var(--ch);color:#0b0c0a;font:700 17px var(--f-ui);padding:5px 14px 5px 10px;letter-spacing:.06em;white-space:nowrap;clip-path:polygon(0 0,100% 0,calc(100% - 12px) 100%,0 100%)}
@@ -216,7 +218,7 @@ header.top p{margin:0;color:var(--muted);max-width:74ch;line-height:1.45}
 .stage[data-act="sniping"][data-mode="combat"] .cam{border-radius:50%;filter:grayscale(.6) sepia(.3) hue-rotate(50deg)}
 
 /* ---- spine ---- */
-.spine{position:absolute;left:0;right:0;bottom:6px;height:64px;display:flex;align-items:stretch;background:linear-gradient(0deg,rgba(8,9,7,.95),rgba(8,9,7,.84));border-top:2px solid color-mix(in srgb,var(--ch) 70%,transparent);transition:background .5s,bottom .5s}
+.spine{position:absolute;left:0;right:0;bottom:6px;height:64px;display:flex;align-items:stretch;background-color:rgba(8,9,7,.92);border-top:2px solid color-mix(in srgb,var(--ch) 70%,transparent);transition:background-color .6s,color .6s,box-shadow .6s,bottom .5s}
 .spine>*{display:flex;align-items:center;padding:0 18px}
 .bug{font:700 22px var(--f-ui);letter-spacing:.06em;gap:12px;min-width:420px;background:var(--ch);color:#0b0c0a;clip-path:polygon(0 0,100% 0,calc(100% - 26px) 100%,0 100%);padding-right:40px;transition:background .5s}
 .bug .num{font-family:var(--f-lcd);font-size:34px;color:var(--ch);background:#0b0c0a;padding:0 8px}
@@ -230,16 +232,16 @@ header.top p{margin:0;color:var(--muted);max-width:74ch;line-height:1.45}
 .crashchip .clk{font-family:var(--f-lcd);font-size:36px;color:#ffb000;background:#140f00;padding:0 8px}
 .jack{gap:10px;font:600 14px var(--f-ui);letter-spacing:.06em;color:#ffe9a6;border-left:1px solid rgba(255,255,255,.12)}
 .jack .v{font-family:var(--f-stamp);font-size:32px;color:var(--gold);letter-spacing:.03em;text-shadow:0 0 12px rgba(255,204,51,.5)}
-.stage[data-mode="pilot"] .spine{background:#020a02}
+.stage[data-mode="pilot"] .spine{background-color:#020a02}
 .stage[data-mode="pilot"] .ticker{font-family:var(--f-lcd);font-size:32px;font-weight:400;color:#7cff6b}
-.stage[data-mode="builder"] .spine{background:#0d3a85;box-shadow:0 -12px 0 0 #141414}
+.stage[data-mode="builder"] .spine{background-color:#0d3a85;box-shadow:0 -12px 0 0 #141414}
 .stage[data-mode="builder"] .ticker{font-family:var(--f-stamp);font-weight:400;letter-spacing:.06em}
-.stage[data-mode="driver"] .spine{background:#120800}
+.stage[data-mode="driver"] .spine{background-color:#120800}
 .stage[data-mode="driver"] .ticker{font-family:var(--f-lcd);font-size:34px;font-weight:400;color:#ff9a2e;text-shadow:0 0 8px rgba(255,140,30,.8)}
-.stage[data-mode="medic"] .spine{background:#eef3f1;color:#0f1a17}
+.stage[data-mode="medic"] .spine{background-color:#eef3f1;color:#0f1a17}
 .stage[data-mode="medic"] .ticker b{color:#0a8f5f}.stage[data-mode="medic"] .crashchip{color:#6b3b00}.stage[data-mode="medic"] .jack{color:#6b5200}
-.stage[data-mode="combat"] .spine{background:linear-gradient(90deg,#1a0000,#0a0000)}
-.stage[data-mode="dead"] .spine{background:#2b2f2c}
+.stage[data-mode="combat"] .spine{background-color:#140000}
+.stage[data-mode="dead"] .spine{background-color:#2b2f2c}
 .ribbon{left:0;right:0;bottom:0;height:6px;display:flex;background:#111}
 .ribbon i{display:block;height:100%}
 
@@ -293,7 +295,9 @@ header.top p{margin:0;color:var(--muted);max-width:74ch;line-height:1.45}
 
 /* ---- mode panel ---- */
 .rcol{left:1480px;top:668px;width:420px;height:320px}
-.mp{position:absolute;inset:0;display:none;flex-direction:column;gap:8px;animation:pin .5s ease-out}
+.mp{position:absolute;inset:0;display:none;flex-direction:column;gap:8px;animation:pin .5s .2s ease-out both}
+.mp.out{display:flex!important;animation:pout .3s ease-in forwards;pointer-events:none}
+@keyframes pout{to{opacity:0;transform:translateX(60px)}}
 @keyframes pin{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:none}}
 .row{display:flex;justify-content:space-between;gap:10px;font:600 16px/1.45 var(--f-ui)}
 .row span:last-child{font-variant-numeric:tabular-nums}
@@ -395,11 +399,11 @@ header.top p{margin:0;color:var(--muted);max-width:74ch;line-height:1.45}
 .linked .who b{display:block;font-size:17px}.linked .who small{color:#666}
 .linked .tagline{color:#0a66c2;font-weight:700;margin-top:6px}
 .static{inset:0;display:none;pointer-events:none;mix-blend-mode:screen}
-.wipe{top:0;bottom:0;left:0;width:1400px;display:none;transform:translateX(-140%) skewX(-18deg);background:linear-gradient(90deg,transparent,var(--wc) 8%,var(--wc) 92%,transparent);align-items:center;justify-content:center;pointer-events:none}
+.wipe{top:auto;bottom:0;height:150px;left:0;width:1400px;display:none;transform:translateX(-140%) skewX(-18deg);background:linear-gradient(90deg,transparent,var(--wc) 8%,var(--wc) 92%,transparent);align-items:center;justify-content:center;pointer-events:none}
 .wipe.go{display:flex;animation:wipe .95s cubic-bezier(.6,0,.3,1) forwards}
 @keyframes wipe{to{transform:translateX(160%) skewX(-18deg)}}
-.wipe span{transform:skewX(18deg);font:400 120px/1 var(--f-stamp);color:#0b0c0a;letter-spacing:.04em;white-space:nowrap}
-.wipe span small{display:block;font:700 30px var(--f-ui);letter-spacing:.3em}
+.wipe span{transform:skewX(18deg);font:400 64px/1 var(--f-stamp);color:#0b0c0a;letter-spacing:.04em;white-space:nowrap}
+.wipe span small{display:block;font:700 18px var(--f-ui);letter-spacing:.3em}
 .osd{left:60px;top:290px;font:400 72px/1 var(--f-lcd);color:#46ff5a;text-shadow:0 0 12px rgba(70,255,90,.9);display:none;letter-spacing:.04em}
 .toast{left:50%;top:236px;transform:translateX(-50%);background:rgba(8,9,7,.92);border:1px solid var(--ch);padding:8px 16px;font:700 18px var(--f-ui);letter-spacing:.08em;display:none;white-space:nowrap}
 .mainchar{left:0;right:0;top:0;height:64px;background:linear-gradient(90deg,#3d2a00,#b8860b 50%,#3d2a00);color:#fff6d6;display:flex;align-items:center;justify-content:center;gap:40px;font:400 34px var(--f-stamp);letter-spacing:.08em;transform:translateY(-100%);transition:transform .5s;z-index:3}
@@ -451,7 +455,7 @@ body.live.offline .livebadge{display:block}
 <div class="wrap">
   <header class="top">
     <h1>BENGED <span>NETWORK</span></h1>
-    <p>A working mockup of benged's WARDOGS overlay. Combat is home base. The overlay switches itself to <b>Benged Air</b>, <b>Benged Builds</b>, <b>42.01 Benged FM</b> or <b>Dr. Benged</b> when he's flying, building, driving or reviving, and drops back to Combat 30 seconds after he stops. Press <b>Play the demo</b> or drive it from the console.</p>
+    <p>A working mockup of benged's WARDOGS overlay. Combat is home base. The overlay switches itself to <b>Benged Air</b>, <b>Benged Builds</b>, <b>42.0 Benged FM</b> or <b>Dr. Benged</b> when he's flying, building, driving or reviving, and drops back to Combat 30 seconds after he stops. Press <b>Play the demo</b> or drive it from the console.</p>
   </header>
 
   <div class="stage-wrap" id="wrap"><button class="fsbtn" id="fsb" type="button">⛶ FULL SCREEN</button>
@@ -501,7 +505,7 @@ body.live.offline .livebadge{display:block}
           <div class="dash">
             <svg class="gauge" viewBox="0 0 170 170"><circle class="face" cx="85" cy="85" r="78"/><g id="gTicks"></g><line class="needle" id="needle" x1="85" y1="85" x2="85" y2="22"/><circle cx="85" cy="85" r="8" fill="#ff3b30"/><text x="85" y="128" id="kmh">64</text><text class="sm" x="85" y="146">KM/H</text></svg>
             <div class="stereo"><div class="face"><div class="knob"></div>
-              <div class="lcd"><div class="r1"><span class="freq">42.01</span><span class="nm">BENGED FM<small id="station">PHONK</small></span></div>
+              <div class="lcd"><div class="r1"><span class="freq">42.0</span><span class="nm">BENGED FM<small id="station">PHONK</small></span></div>
                 <div class="song"><span id="song">NOW PLAYING: benged — Supply Run (phonk remix) · SHOTGUN: dave_irl · WE'LL GET YOU THERE. PROBABLY.</span></div>
                 <div class="eq" id="eq"></div></div>
               <div class="knob" style="animation-direction:reverse"></div></div>
@@ -612,7 +616,7 @@ body.live.offline .livebadge{display:block}
         <canvas class="abs fx" id="fx" width="1920" height="1080"></canvas>
       </div>
       <div class="abs wipe" id="wipe"><span id="wipeT">CH 02 · BENGED AIR</span></div>
-      <canvas class="abs static" id="static" width="480" height="270" style="width:1920px;height:1080px"></canvas>
+      <canvas class="abs static" id="static" width="480" height="270" style="left:24px;top:22px;width:360px;height:203px"></canvas>
       <div class="abs osd" id="osd">CH 02</div>
       <div class="livebadge">OVERLAY OFFLINE · start Benged Network</div>
     </div>
@@ -677,7 +681,7 @@ const LIVE=/\/overlay$/.test(location.pathname)||/[?&]live/.test(location.search
 if(LIVE){document.body.classList.add('live');document.documentElement.style.background='transparent';document.documentElement.style.colorScheme='normal';}
 /* live: switch as soon as the reader is sure (it already confirms on its side); the demo keeps its slow timers */
 const NEED=LIVE?{pilot:1,driver:2,builder:1,medic:1}:{pilot:15,driver:10,builder:2,medic:2};
-function began(m){return m==='pilot'?S.flyStart:m==='driver'?S.driveStart:m==='builder'?lastOf(S.builds):m==='medic'?lastOf(S.revive):-1e9;}
+function began(m){return m==='pilot'?S.flyStart:m==='driver'?S.driveStart:m==='builder'?Math.max(lastOf(S.builds),S.buildStart==null?-1e9:S.buildStart):m==='medic'?lastOf(S.revive):-1e9;}
 const stage=$('stage'), wrap=$('wrap');
 function fit(){const w=wrap.clientWidth,h=wrap.clientHeight,k=Math.min(w/1920,h/1080);stage.style.transform='translate('+((w-1920*k)/2)+'px,'+((h-1080*k)/2)+'px) scale('+k+')';}
 addEventListener('resize',fit);document.addEventListener('fullscreenchange',()=>setTimeout(fit,60));document.addEventListener('webkitfullscreenchange',()=>setTimeout(fit,60));fit();
@@ -689,7 +693,7 @@ const CH={
  deploy:{num:'CH 01',name:'EPISODE OPEN',color:'#d9b779'},
  pilot:{num:'CH 02',name:'BENGED AIR',color:'#7cff6b',title:'PILOT at Benged Air',hash:'#OpenToFly',role:'PILOT'},
  builder:{num:'CH 03',name:'BENGED BUILDS',color:'#ffb000',title:'FOREMAN at Benged Builds LLC',hash:'#OpenToBuild',role:'SUPPORT',call:'SEABEE 6'},
- driver:{num:'CH 04',name:'42.01 BENGED FM',color:'#ff9a2e',title:'DRIVER at 42.01 Benged FM Logistics',hash:'#OpenToDrive',role:'DRIVER',call:'DIESEL 4'},
+ driver:{num:'CH 04',name:'42.0 BENGED FM',color:'#ff9a2e',title:'DRIVER at 42.0 Benged FM Logistics',hash:'#OpenToDrive',role:'DRIVER',call:'DIESEL 4'},
  medic:{num:'CH 06',name:'DR. BENGED, MD',color:'#19e39a',title:'ATTENDING PHYSICIAN at Dr. Benged Urgent Care',hash:'#OpenToHeal',role:'MEDIC',call:'MEDEVAC 2'},
  shop:{num:'CH 09',name:'BENGED SHOPPING NETWORK',color:'#ff2d9b'},
  dead:{num:'CH 00',name:'PURGATORY',color:'#ff3b30'}
@@ -758,12 +762,13 @@ function evidence(){const t=S.gt,e={};
  e.pilot=S.flyStart==null?0:Math.min(1,(S.flyLast-S.flyStart)/NEED.pilot);
  if(S.driveStart!=null&&t-S.driveLast>QUIET)S.driveStart=null;
  e.driver=S.driveStart==null?0:Math.min(1,(S.driveLast-S.driveStart)/NEED.driver);
- e.builder=t-lastOf(S.builds)>QUIET?0:Math.min(1,within(S.builds,90)/NEED.builder);
+ if(S.buildStart!=null&&t-S.buildLast>QUIET)S.buildStart=null;
+ e.builder=(S.buildStart!=null)?1:t-lastOf(S.builds)>QUIET?0:Math.min(1,within(S.builds,90)/NEED.builder);
  e.medic=t-lastOf(S.revive)>QUIET?0:Math.min(1,within(S.revive,90)/NEED.medic);
  return e;}
 function alive(m){const t=S.gt;if(m==='combat')return true;
  if(m==='pilot')return S.flyStart!=null&&t-S.flyLast<=QUIET; if(m==='driver')return S.driveStart!=null&&t-S.driveLast<=QUIET;
- if(m==='builder')return t-lastOf(S.builds)<=QUIET; if(m==='medic')return t-lastOf(S.revive)<=QUIET; return false;}
+ if(m==='builder')return t-lastOf(S.builds)<=QUIET||(S.buildStart!=null&&t-S.buildLast<=QUIET); if(m==='medic')return t-lastOf(S.revive)<=QUIET; return false;}
 
 let acc={build:0,sup:0,rev:0,tick:0,sample:0}, last=performance.now();
 function loop(now){
@@ -774,6 +779,7 @@ function loop(now){
  if(a==='driving'&&LIVE){if(S.driveStart==null)S.driveStart=t;S.driveLast=t;S.driveTot+=rdt*T;}
  if(a==='driving'&&!LIVE){if(S.driveStart==null)S.driveStart=t;S.driveLast=t;S.driveTot+=rdt*T;S.spd=Math.max(20,Math.min(120,S.spd+rnd(-6,6)));S.xp.DRIVER+=rdt*.4;
   acc.sup+=rdt;if(acc.sup>2.2){acc.sup=0;S.supply.push(t);S.stint.supply++;S.xp.DRIVER+=3;const v=pick([20,40,60]);feed('SUPPLIES DEPOSITED +$'+v,ICON.truck);cashAdd(v);log('SUPPLIES DEPOSITED +$'+v);driveTick();}}
+ if(a==='building'&&LIVE){if(S.buildStart==null)S.buildStart=t;S.buildLast=t;}
  if(a==='building'&&!LIVE){acc.build+=rdt;if(acc.build>1){acc.build=0;S.builds.push(t);S.totBuilds++;S.stint.builds++;const x=pick([5,7,10]);feed('BUILDING COMPLETE '+x+'XP',ICON.wrench);S.xp.SUPPORT+=2;cashAdd(pick([35,50,53]));log('BUILDING COMPLETE '+x+'XP 🔧 → builder '+Math.min(2,within(S.builds,90))+'/2');
   if(S.host==='builder')burst(1690,760,14,['#ffb000','#fff','#9fc3ff'],260,500,4,.8);}}
  if(a==='reviving'&&!LIVE){acc.rev+=rdt;if(acc.rev>1.2){acc.rev=0;doRevive(true);}}
@@ -804,6 +810,7 @@ function loop(now){
 }
 function switchHost(m){
  if(m===S.host)return;const t=S.gt,old=S.host,stint=S.stint,dur=t-S.hostSince;
+ const op=document.querySelector('.mp-'+old);if(op){op.classList.add('out');setTimeout(()=>op.classList.remove('out'),320);}
  S.host=m;S.hostSince=t;S.stint={kills:0,builds:0,revives:0,crashes:0,supply:0};
  log('ENGINE: '+CH[old].name+' → '+CH[m].name+(m==='combat'?' (nothing else for 30 s)':''));
  if(m==='pilot')$('flt').textContent=100+Math.floor(rnd(1,99));
@@ -1062,12 +1069,16 @@ if(LIVE){
    if(e.screen==='loading'){if(S.inter==='dead')S.inter=null;setAct('loading',true);return;}
    if(e.screen==='down'||e.screen==='map'||e.screen==='menu')return;
    if(S.inter==='dead')return;
-   setAct(e.pilot?'flying':e.vehicle?'driving':e.scoped?'sniping':'idle',true);
+   setAct(e.pilot?'flying':e.vehicle?'driving':e.hammer?'building':e.scoped?'sniping':'idle',true);
    if(e.hurt){S.hurtUntil=S.gt+24;if(S.host!=='combat')cflash();}
   },
   kill(e){if(S.inter!=='dead')kill({d:e.dist,v:e.victim||'',w:e.weapon});},
   selfkill(e){if(e.pilot||S.host==='pilot'){S.flyLast=S.gt;crashLive();}},
-  down(e){sadTrombone();if(S.host==='builder')S.osha++;
+  down(e){if(S.gt-(S.lastDown||-99)<20)return;S.lastDown=S.gt;
+   const wasFlying=S.host==='pilot'&&S.act==='flying';
+   S.flyStart=S.driveStart=S.buildStart=null;S.flyLast=S.driveLast=S.buildLast=-999;S.builds=[];S.revive=[];
+   if(wasFlying&&(e.self_inflicted||!e.killer)){S.flyLast=S.gt;crashLive();}
+   sadTrombone();if(S.host==='builder')S.osha++;
    if(e.self_inflicted){if(S.inter!=='dead')die('',0,0,true);}else die(e.killer||'someone','',0,false);
    S.deadUntil=S.gt+1e9;
    /* the knocked-down screen shows for 6 s, then gets out of the way whatever happens next */
@@ -1086,7 +1097,14 @@ if(LIVE){
    else if(k==='tip'){S.tipsAmt+=Math.abs(e.money||0);if(S.cash<0)card('DONATING WHILE IN DEBT','#ffcc33','Tip Jar: '+money(S.tipsAmt)+' sent tonight');else toast('TIP JAR · '+money(S.tipsAmt)+' SENT TONIGHT');SFX.coin();}
    else if(k==='refuel'||k==='repair')toast('PIT STOP · '+(k==='refuel'?'REFUELLING':'REPAIRS')+' '+money(Math.abs(e.money||0)));
    else if(k==='level')levelUp();
+   else if(k==='passenger'){   /* passengers dropped off alive: one card per drop-off, counted up */
+     S.flyLast=t;S.pax=(S.pax||0)+1;S.paxDrop=(t-(S.paxT||-99)<6?(S.paxDrop||0):0)+1;S.paxT=t;
+     card('ON-TIME ARRIVAL','#7cff6b',S.paxDrop+' passenger'+(S.paxDrop>1?'s':'')+' delivered alive · '+S.pax+' tonight');SFX.coin();}
+   else if(k==='deploy'){S.flyLast=t;toast('BENGED AIR · TROOPS ON THE GROUND');}
+   else if(k==='heal'){S.revive.push(t);toast('DR. BENGED · PATIENT TREATED');}
+   else if(k==='bribe')toast('BRIBE · '+money(Math.abs(e.money||0)));
   },
+  speed(e){if(e.spd!=null)S.spd=e.spd;},
   cash(e){S.cash=e.match;S.wallet=e.wallet;if(!S.gotCash){S.gotCash=true;S.startWallet=e.wallet;}renderCash();
    if(e.match<0&&e.match<S.low){S.low=e.match;stage.classList.add('broke');SFX.broke();clearTimeout(S._bt);S._bt=setTimeout(()=>stage.classList.remove('broke'),20000);}
    if(e.match>=0)stage.classList.remove('broke');},

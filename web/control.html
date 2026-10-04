@@ -59,7 +59,7 @@ button.go{background:var(--amber);color:#171100;border-color:var(--amber)}
         <div><span>ms per check</span><b id="ms">0</b></div>
         <div><span>Channel signal</span><b id="chan">—</b></div>
         <div><span>Screen</span><b id="scr">—</b></div>
-        <div><span>Heli gauges</span><b id="heli">—</b></div>
+        <div><span>Speed (heli · vehicle)</span><b id="heli">—</b></div>
       </div>
       <p class="hint">Yellow boxes are where the reader looks. If WARDOGS is a different resolution or HUD scale and the boxes miss the cash, kill feed or heli controls, tell Kevin and send a screenshot of this panel.</p>
     </div>
@@ -106,7 +106,7 @@ button.go{background:var(--amber);color:#171100;border-color:var(--amber)}
         <button data-ev='{"type":"state","pilot":false,"vehicle":true,"scoped":false,"hurt":false,"screen":"none"}'>In a vehicle</button>
         <button data-ev='{"type":"state","pilot":false,"vehicle":false,"scoped":false,"hurt":false,"screen":"none"}'>On foot</button>
       </div>
-      <p class="hint">Channels switch as soon as the reader is sure: Benged Air the moment you're in the pilot seat, 42.01 Benged FM after 2 s in a vehicle, Benged Builds on a build, Dr. Benged on a revive. The newest activity wins. Back to Combat 30 s after the activity stops. The knocked-down screen closes itself after 6 s. Test buttons go to the overlay the same way real events do.</p>
+      <p class="hint">Channels switch as soon as the reader is sure: Benged Air the moment you're in the pilot seat, 42.0 Benged FM after 2 s in a vehicle, Benged Builds on a build, Dr. Benged on a revive. The newest activity wins. Back to Combat 30 s after the activity stops. The knocked-down screen closes itself after 6 s. Test buttons go to the overlay the same way real events do.</p>
       <h2 style="margin-top:14px">Start fresh</h2>
       <div class="row"><button class="go" id="reset" type="button">Reset overlay for a new stream</button><span id="resetMsg" class="hint"></span></div>
       <p class="hint">Clears kills, streaks, crashes, tips, the $BNGD chart and everything from test clicks. Restarting START.bat does the same.</p>
@@ -155,6 +155,7 @@ function line(e){const d=document.createElement('div');const t=new Date().toLoca
   const cls={kill:'k',selfkill:'d',down:'d',killed_by:'d',xp:'x',cash:'x',state:'s'}[e.type]||'q';d.className=cls;
   if(e.type==='state'){$('chan').textContent=e.pilot?'PILOT':e.vehicle?'VEHICLE':e.scoped?'SCOPED':'ON FOOT';$('scr').textContent=e.screen.toUpperCase();}
   if(e.type==='pilot'){$('heli').textContent=(e.spd??'?')+' km/h · '+(e.agl??'?')+' m';return;}
+  if(e.type==='speed'){$('heli').textContent=e.spd+' km/h (vehicle)';return;}
   if(e.type==='hello'||e.type==='reset')return;
   const {t:_,...rest}=e;d.textContent=t+'  '+e.type.toUpperCase()+'  '+JSON.stringify(rest);const l=$('log');l.prepend(d);while(l.children.length>200)l.lastChild.remove();}
 function ws(){const w=new WebSocket('ws://'+location.host+'/ws');w.onmessage=m=>{try{line(JSON.parse(m.data))}catch(_){}};w.onclose=()=>setTimeout(ws,2000);}

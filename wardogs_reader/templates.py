@@ -18,7 +18,9 @@ HOME = {
     "deploy_flares": "hints",
     "change_seat": "hints",
     "spd_label": "gauges",
+    "vspd_label": "gauges",           # ground vehicles: SPD box sits a little lower, no ALT box
     "alt_label": "gauges",
+    "hammer": "weapon",
     "view_damage_log": "damagelog",
     "give_up": "bottom",
     "call_for_help": "bottom",
@@ -28,17 +30,16 @@ HOME = {
     "vendor": "top",
 }
 
-SCALES = (1.0, 0.9, 1.1)
-# the heli HUD shrinks to ~75% in third-person camera
-SMALL = ("collective_lift", "deploy_flares", "change_seat", "spd_label", "alt_label")
-SCALES_SMALL = SCALES + (0.8, 0.75, 0.7)
+# The whole game UI changes size between benged's setups (his Twitch stream draws it at ~75%
+# of his older Kick VODs), so every label is tried at every size, the last good size first.
+SCALES = (1.0, 0.75, 0.9, 0.8, 1.1, 0.7)
 
 
 class Templates:
     def __init__(self):
         self.t = {}
         for name in HOME:
-            scales = SCALES_SMALL if name in SMALL else SCALES
+            scales = SCALES
             # name.png plus optional look variants name_2.png, ... (e.g. third-person gauges)
             for v, suffix in enumerate(["", "_2", "_3"]):
                 p = os.path.join(HERE, name + suffix + ".png")
@@ -48,8 +49,9 @@ class Templates:
                         (s, v, cv2.resize(img, None, fx=s, fy=s, interpolation=cv2.INTER_AREA) if s != 1 else img)
                         for s in scales)
         self.last = {}                       # name -> best score of the latest check (diagnostics)
+        self.pref = {}                       # name -> index of the size/variant that matched last
 
-    def locate(self, gray, name):
+    def locate(self, gray, name, stop=None):
         """Best match of the label inside its home region: (score 0..1, x, y, scale, variant) in frame pixels."""
         if name not in self.t:
             return 0.0, 0, 0, 1.0, 0
@@ -57,14 +59,21 @@ class Templates:
         x0, y0, x1, y1 = REGIONS[HOME[name]]
         ox, oy = int(x0 * w), int(y0 * h)
         roi = gray[oy:int(y1 * h), ox:int(x1 * w)]
-        best = (0.0, 0, 0, 1.0, 0)
-        for s, v, tpl in self.t[name]:
+        best, best_i = (0.0, 0, 0, 1.0, 0), None
+        cands = self.t[name]
+        first = self.pref.get(name, 0)
+        for i in [first] + [j for j in range(len(cands)) if j != first]:
+            s, v, tpl = cands[i]
             if tpl.shape[0] > roi.shape[0] or tpl.shape[1] > roi.shape[1]:
                 continue
             r = cv2.matchTemplate(roi, tpl, cv2.TM_CCOEFF_NORMED)
             _, mx, _, loc = cv2.minMaxLoc(r)
             if mx > best[0]:
-                best = (float(mx), ox + loc[0], oy + loc[1], s, v)
+                best, best_i = (float(mx), ox + loc[0], oy + loc[1], s, v), i
+            if stop is not None and mx >= stop:
+                break
+        if best_i is not None and best[0] >= 0.7:
+            self.pref[name] = best_i
         self.last[name] = round(best[0], 2)
         return best
 
@@ -72,4 +81,4 @@ class Templates:
         return self.locate(gray, name)[0]
 
     def seen(self, gray, *names, thresh=0.72):
-        return any(self.score(gray, n) >= thresh for n in names)
+        return any(self.locate(gray, n, stop=thresh)[0] >= thresh for n in names)

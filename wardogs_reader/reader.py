@@ -33,12 +33,20 @@ from .regions import crop
 from .ocr import read_line, read_lines, norm, stroke_mask, CachedLines
 from .templates import Templates
 
-IGNORE = ("ROTARYVEHICLE", "OCCUPIEDSEATS", "LAKOTA", "UNLOCKED")
+IGNORE = ("ROTARYVEHICLE", "OCCUPIEDSEATS", "LAKOTA", "UNLOCKED", "STORAGE", "BACKPACK", "SQUAD", "VEHICLEINVENTORY")
 XP_RULES = [
     ("SUPPLIESDELIVERED", "supplies"),
     ("SUPPLIESDEPOSITED", "supplies"),
     ("CONTROLZONEENTERED", "zone_enter"),
     ("CONTROLZONEPRESENCE", "zone"),
+    ("HOTZONEPRESENCE", "zone"),
+    ("DRILLPRESENCE", "zone"),
+    ("PASSENGERSURVIVED", "passenger"),     # pilot: each passenger dropped off alive (+$500)
+    ("TACTICALDEPLOYMENT", "deploy"),       # pilot: troops deployed from his heli
+    ("HEALEDTEAMMATE", "heal"),
+    ("FOBSUPPLIED", "supplies"),
+    ("WHEELSDESTROYED", "wheels"),
+    ("BRIBE", "bribe"),
     ("VEHICLEREFUELLING", "refuel"),
     ("VEHICLEREPAIRING", "repair"),
     ("WAITEDTOBEREVIVED", "revived_me"),
@@ -146,8 +154,8 @@ class Reader:
         self.kf_lines = CachedLines(max_w=470, max_new=3)
         self.xp = LineTracker()
         self.kf = LineTracker(hold=7.0)
-        self.state = dict(pilot=False, vehicle=False, scoped=False, hurt=False, screen="none")
-        self._pilot_last = self._vehicle_last = -999
+        self.state = dict(pilot=False, vehicle=False, hammer=False, scoped=False, hurt=False, screen="none")
+        self._pilot_last = self._vehicle_last = self._hammer_last = -999
         self._cash = self._cash_cand = None
         self._cash_miss = 0
         self._popup_last = -999
@@ -156,6 +164,7 @@ class Reader:
         self._pending_kill = None
         self._hurt_frames = 0
         self._gauges = None                   # (SPD label, ALT label) matches while the heli gauges are on screen
+        self._vgauge = None                   # ground-vehicle SPD box match
         self._spd = self._agl = None
         self._jump = {}
 
@@ -203,10 +212,13 @@ class Reader:
             # pilot seat: the pilot-only control hints, or the SPD + ALT gauges
             # (either is enough; the hints can be toggled off)
             self._gauges = self._find_gauges(gray)
-            if self._gauges or self.tpl.seen(gray, "collective_lift", "deploy_flares"):
+            self._vgauge = None if self._gauges else self._find_vehicle_gauge(gray)
+            if self._gauges or self.tpl.seen(gray, "collective_lift", "deploy_flares", thresh=0.8):
                 self._pilot_last = t
-            elif self.tpl.seen(gray, "change_seat"):
+            elif self._vgauge or self.tpl.seen(gray, "change_seat", thresh=0.8):
                 self._vehicle_last = t
+            elif self.tpl.seen(gray, "hammer", thresh=0.75):    # building tool in hand
+                self._hammer_last = t
         if in_game:
             if self._due("cash", 1.0):
                 self._read_cash(frame, ev)
@@ -216,6 +228,8 @@ class Reader:
                 self._read_popup(frame, ev)
             if self._gauges and self._due("gauges", 1.0):
                 self._read_gauges(frame, ev)
+            elif self._vgauge and self._due("gauges", 1.0):
+                self._read_vehicle_speed(frame, ev)
             # damage vignette must hold for 2 frames
             self._hurt_frames = self._hurt_frames + 1 if self._vignette(frame) > 34 else 0
             self.state["hurt"] = self._hurt_frames >= 2
@@ -225,6 +239,7 @@ class Reader:
 
         self.state["pilot"] = t - self._pilot_last < 4.0
         self.state["vehicle"] = (not self.state["pilot"]) and t - self._vehicle_last < 4.0
+        self.state["hammer"] = not (self.state["pilot"] or self.state["vehicle"]) and t - self._hammer_last < 4.0
         self._flush_kill(ev)
         if self.state != prev_state:
             ev.append(dict(type="state", **self.state))
@@ -321,7 +336,8 @@ class Reader:
         if int(stroke_mask(img).sum()) < 120 or self.t - self._popup_last < 2.0:
             return
         txt = " ".join(norm(x[0]) for x in read_lines(img))
-        if "CONFIRM" in txt or "2000" in txt:
+        # a kill says CONFIRMED (+$2,000); passengers dropped off show +$2,500 here too, not a kill
+        if "CONFIRM" in txt or ("2000" in txt and "PASS" not in txt):
             self._popup_last = self.t
             self._kill_signal("popup", None, "")
 
@@ -344,16 +360,24 @@ class Reader:
                 # his own death line: "[2EZ]brave88 [11m] [KA]Benged"
                 ev.append(dict(type="killed_by", killer=left.strip(" []|"), dist=dist, text=raw))
 
-    def _find_gauges(self, gray, thresh=0.7):
-        sp = self.tpl.locate(gray, "spd_label")
+    # heli: ALT box sits this far right of the SPD box (template pixels, per look variant)
+    ALT_DX = {0: 235, 1: 177}
+
+    def _find_gauges(self, gray, thresh=0.8):
+        """Heli SPD + ALT boxes (pilot seat only). Ground vehicles have an SPD box but no ALT box."""
+        sp = self.tpl.locate(gray, "spd_label", stop=0.9)
         if sp[0] < thresh:
             return None
-        al = self.tpl.locate(gray, "alt_label")
-        if al[0] < thresh:
+        al = self.tpl.locate(gray, "alt_label", stop=0.9)
+        if al[0] < thresh or al[4] != sp[4]:
             return None
-        if not (0 < al[1] - sp[1] < 330 and abs(al[2] - sp[2]) < 8):    # ALT sits right of SPD, same row
+        if abs((al[1] - sp[1]) - self.ALT_DX[sp[4]] * sp[3]) > 14 or abs(al[2] - sp[2]) > 5:
             return None
         return sp, al
+
+    def _find_vehicle_gauge(self, gray, thresh=0.8):
+        v = self.tpl.locate(gray, "vspd_label", stop=0.9)
+        return v if v[0] >= thresh else None
 
     @staticmethod
     def _gauge_number(text, after):
@@ -387,6 +411,17 @@ class Reader:
         _, x, y, s, v = match
         top, bot, right = self.GAUGE_LINE[(key, v)]
         return read_line(frame[int(y + top * s):int(y + bot * s), max(0, x - 2):int(x + right * s)])[0]
+
+    def _read_vehicle_speed(self, frame, ev):
+        """Ground vehicles: '79  KM/H' under the SPD box (number first)."""
+        _, x, y, s, _ = self._vgauge
+        txt = read_line(frame[int(y + 14 * s):int(y + 29 * s), max(0, x - 2):int(x + 56 * s)])[0]
+        m = re.match(r"\s*([\dOoIlSB]{1,3})", txt)
+        n = _digits(m.group(1)) if m else ""
+        spd = int(n) if n.isdigit() else None
+        spd = self._steady("spd", spd if spd is not None and spd <= 200 else None, 40)
+        if spd is not None:
+            ev.append(dict(type="speed", spd=spd, raw=txt))
 
     def _read_gauges(self, frame, ev):
         s = self._gauge_text(frame, "spd", self._gauges[0])
