@@ -43,6 +43,20 @@ th{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute
     <p class="lede">Your WARDOGS overlay watches the game the same way viewers do and reacts on its own: heli crashes, getting knocked down, revives, the vendor, the pilot seat and more. It only reads the picture OBS already has. It never touches the game, so anti-cheat has nothing to see.</p>
   </header>
 
+  <section style="border:2px solid var(--accent)">
+    <h2>Already set up? Install the new version (one time, 2 minutes)</h2>
+    <p>If you ran SETUP.bat before and have the overlay in OBS, this is all you need. After this, new versions install themselves.</p>
+    <ol>
+      <li>Close the black <b>START.bat</b> window if it's open.</li>
+      <li>Unzip <code>benged-network-v1.6.zip</code> to the <b>same place</b> as your current Benged Network folder, so its <code>benged-network</code> folder lands on top of the old one. Say <b>Yes / Replace</b> when Windows asks. Your OBS password, settings and the installed reader stay.</li>
+      <li>Double-click <b>START.bat</b>. Do <b>not</b> run SETUP.bat again.</li>
+      <li>The control panel title should now say <b>v1.6.0</b>. That's the self-updating version: from now on updates install when you start it, or with the <b>Update now</b> button.</li>
+      <li>Check the light at the top right says <b>1 overlay connected</b>. If it says "NOT connected", see "If something looks wrong" below.</li>
+      <li>Before you go live, press <b>Reset overlay for a new stream</b> so test clicks don't count.</li>
+    </ol>
+    <p class="note">New in this version: driving and vehicle speed, the hammer keeps Benged Builds on while you build, a passenger drop-off card, a Tip Jar that catches coins when passengers tip you, smoother channel changes, the knocked-down screen closes after 6 s, and 42.0 FM. Brand new to this? Skip this box and start at step 1 below.</p>
+  </section>
+
   <section>
     <h2>The short version</h2>
     <div class="steps">
@@ -121,7 +135,8 @@ th{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute
         <tr><td>Pilot seat (cockpit or third-person camera)</td><td>Switches to <b>Benged Air</b> right away, with speed and altitude read off your gauges</td><td><span class="tag ok">Tested</span></td></tr>
         <tr><td>Any vendor (equipment, vehicle, garage)</td><td>Benged Shopping Network</td><td><span class="tag ok">Tested</span></td></tr>
         <tr><td>Reviving a teammate</td><td>Switches to <b>Dr. Benged, MD</b>, revive jingle</td><td><span class="tag ok">Tested</span></td></tr>
-        <tr><td>Tips, zone money, supply runs, cash, going broke</td><td>Tip Jar, $BNGD ticker, telethon on a new low</td><td><span class="tag ok">Tested</span></td></tr>
+        <tr><td>Tips from passengers</td><td>The Tip Jar swoops down, a coin (or a $ bill for big tips) drops in, ching ching, then it floats back to its spot by your cam</td><td><span class="tag ok">New</span></td></tr>
+        <tr><td>Zone money, supply runs, cash, going broke, tips you send</td><td>$BNGD ticker, telethon on a new low, "donating while in debt"</td><td><span class="tag ok">Tested</span></td></tr>
         <tr><td>Map, inventory, scoreboard</td><td>Ignored (no false deaths)</td><td><span class="tag ok">Tested</span></td></tr>
         <tr><td>Kills (the <i>+$2,000 CONFIRMED</i> popup and your kill-feed line)</td><td>Kill card with distance, streak fire, Main Character at 3</td><td><span class="tag wait">First stream</span></td></tr>
         <tr><td>Building (hammer in hand, or a build)</td><td>Switches to <b>Benged Builds</b> and stays on while you keep building</td><td><span class="tag ok">Tested</span></td></tr>
