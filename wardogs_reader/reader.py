@@ -364,7 +364,7 @@ class Reader:
                 ev.append(dict(type="killed_by", killer=left.strip(" []|"), dist=dist, text=raw))
 
     # heli: ALT box sits this far right of the SPD box (template pixels, per look variant)
-    ALT_DX = {0: 235, 1: 177}
+    ALT_DX = {0: 235, 1: 177, 2: 176}          # 2 = benged's fullscreen 1440x900 HUD
 
     def _find_gauges(self, gray, thresh=0.8):
         """Heli SPD + ALT boxes (pilot seat only). Ground vehicles have an SPD box but no ALT box."""
@@ -412,7 +412,8 @@ class Reader:
     # number line under each label, relative to the label match: (top, bottom, right) in template pixels
     # per template variant (0 = cockpit view, 1 = third-person view: narrower boxes, smaller text)
     GAUGE_LINE = {("spd", 0): (14, 29, 72), ("spd", 1): (14, 29, 55),
-                  ("alt", 0): (14, 29, 66), ("alt", 1): (14, 29, 54)}
+                  ("alt", 0): (14, 29, 66), ("alt", 1): (14, 29, 54),
+                  ("spd", 2): (14, 29, 55), ("alt", 2): (14, 29, 54)}
 
     def _gauge_text(self, frame, key, match):
         _, x, y, s, v, sx = match
