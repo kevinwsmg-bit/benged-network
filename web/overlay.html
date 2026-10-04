@@ -311,6 +311,7 @@ header.top p{margin:0;color:var(--muted);max-width:74ch;line-height:1.45}
 /* every channel (benged's call): the channel panel sits at the bottom right, just above the bottom bar,
    and the six-role XP card stacks right on top of it (render() measures the panel each frame) */
 .stage .rcol{top:auto;bottom:82px;height:auto}
+.mp-driver .nfl{display:none}   /* removed (benged); kept in the page so its code still runs */
 .stage .rcol .mp{position:relative;inset:auto}
 .stage .rcol .mp.out{position:absolute;left:0;right:0;bottom:0}
 .stage .core{top:auto;bottom:var(--coreb,420px);transition:bottom .45s ease}
@@ -615,7 +616,7 @@ body.live.offline .livebadge{display:block}
               <div class="row"><span>OSHA violations</span><span id="bOsha">0</span></div></div>
           </div>
           <div class="mp mp-driver">
-            <div class="card"><h4>NFL drive chart</h4>
+            <div class="card nfl"><h4>NFL drive chart</h4>
               <div class="row"><span>Drives · TD · Fumbles</span><span id="dStat">0 · 0 · 0</span></div>
               <div class="drive" id="drive"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
             <div class="card">

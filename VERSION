@@ -1,2 +1,2 @@
-1.9.4
-Money fixed: the two money boxes are read separately (no more $1,842 misreads), and a vendor purchase is counted even though the store closes when you buy (ka-ching + SOLD + receipt with the real amount, and it comes off Earned This Stream).
+1.9.5
+Removed the NFL drive chart from 42.0 Benged FM; the panels close up with no gap.
