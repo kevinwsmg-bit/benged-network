@@ -149,6 +149,10 @@ class Capture(threading.Thread):
                 raw = self.grab()
                 frame = cv2.imdecode(np.frombuffer(raw, np.uint8), cv2.IMREAD_COLOR)
                 self.last_jpg = raw
+                self.status["frame"] = f"{frame.shape[1]}x{frame.shape[0]}"
+                if not self.status.get("native") and not self.replay:
+                    threading.Thread(target=self.probe_native, daemon=True).start()
+                    self.status["native"] = "checking"
                 for ev in self.reader.process(frame, time.time()):
                     self.hub.send_threadsafe(ev)
                     self.clip_rule(ev)
@@ -173,6 +177,18 @@ class Capture(threading.Thread):
                 return fh.read()
         r = self.obs().get_source_screenshot(self.cfg["source"], "jpg", 1280, 720, 80)
         return base64.b64decode(r.image_data.split(",", 1)[1])
+
+    def native(self):
+        """Full-resolution PNG of the game source, exactly as OBS has it (no scaling)."""
+        r = self.obs().send("GetSourceScreenshot", {"sourceName": self.cfg["source"], "imageFormat": "png"}, raw=True)
+        return base64.b64decode(r["imageData"].split(",", 1)[1])
+
+    def probe_native(self):
+        try:
+            img = cv2.imdecode(np.frombuffer(self.native(), np.uint8), cv2.IMREAD_COLOR)
+            self.status["native"] = f"{img.shape[1]}x{img.shape[0]}"
+        except Exception as e:
+            self.status["native"] = f"unknown ({friendly(e)})"
 
     def clip_rule(self, ev):
         """Save the OBS replay buffer ~8 s after a big moment (the reaction is the content)."""
@@ -287,6 +303,27 @@ def make_app(cfg, replay=None):
         hub.log = []
         return web.json_response(dict(ok=True))
 
+    async def debug(_):
+        """Save what the reader sees right now so benged can send it to Kevin, then open the folder."""
+        folder = os.path.join(HERE, "debug", time.strftime("%Y%m%d-%H%M%S"))
+        os.makedirs(folder, exist_ok=True)
+        info = dict(status=cap.status, state=cap.reader.state, scores=cap.reader.tpl.last,
+                    version=updater.current(), recent=hub.log[-80:])
+        try:
+            png = await asyncio.to_thread(cap.native)
+            with open(os.path.join(folder, "game-full-size.png"), "wb") as f:
+                f.write(png)
+        except Exception as e:
+            info["native_error"] = friendly(e)
+        if cap.last_jpg:
+            with open(os.path.join(folder, "reader-view.jpg"), "wb") as f:
+                f.write(cap.last_jpg)
+        with open(os.path.join(folder, "details.json"), "w", encoding="utf-8") as f:
+            json.dump(info, f, indent=1, default=str)
+        if sys.platform == "win32":
+            os.startfile(folder)
+        return web.json_response(dict(ok=True, folder=folder))
+
     async def snapshot(_):
         if not cap.last_jpg:
             return web.Response(status=404, text="no frame yet")
@@ -314,6 +351,7 @@ def make_app(cfg, replay=None):
     app.router.add_post("/api/config", set_config)
     app.router.add_post("/api/test", test_event)
     app.router.add_post("/api/reset", reset)
+    app.router.add_post("/api/debug", debug)
     app.router.add_get("/api/version", version)
     app.router.add_post("/api/update", update)
     app.router.add_get("/api/snapshot.jpg", snapshot)
