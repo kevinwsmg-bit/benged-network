@@ -148,11 +148,16 @@ class Capture(threading.Thread):
                     continue
                 raw = self.grab()
                 frame = cv2.imdecode(np.frombuffer(raw, np.uint8), cv2.IMREAD_COLOR)
+                full = f"{frame.shape[1]}x{frame.shape[0]}"
+                if frame.shape[1] > 1280:
+                    # shrink here with pixel averaging: OBS's own scaler drops pixels at 2:1
+                    # (1440p -> 720p) and chops up the thin HUD text the reader looks for
+                    frame = cv2.resize(frame, (1280, round(frame.shape[0] * 1280 / frame.shape[1])),
+                                       interpolation=cv2.INTER_AREA)
+                    raw = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 80])[1].tobytes()
                 self.last_jpg = raw
                 self.status["frame"] = f"{frame.shape[1]}x{frame.shape[0]}"
-                if not self.status.get("native") and not self.replay:
-                    threading.Thread(target=self.probe_native, daemon=True).start()
-                    self.status["native"] = "checking"
+                self.status["native"] = full if not self.replay else self.status.get("native")
                 for ev in self.reader.process(frame, time.time()):
                     self.hub.send_threadsafe(ev)
                     self.clip_rule(ev)
@@ -175,20 +180,24 @@ class Capture(threading.Thread):
             self.replay_i += 1
             with open(f, "rb") as fh:
                 return fh.read()
-        r = self.obs().get_source_screenshot(self.cfg["source"], "jpg", 1280, 720, 80)
+        # full size (no width/height): any resolution works, we scale it down ourselves
+        cl = self.obs()                            # connection problems surface here as before
+        if not getattr(self, "small_only", False):
+            try:
+                r = cl.send("GetSourceScreenshot", {"sourceName": self.cfg["source"], "imageFormat": "jpg",
+                                                    "imageCompressionQuality": 85}, raw=True)
+                return base64.b64decode(r["imageData"].split(",", 1)[1])
+            except Exception as e:
+                if "OBSSDKRequestError" not in type(e).__name__:
+                    raise
+                self.small_only = True            # this OBS won't do full size: use its 1280x720 copy
+        r = cl.get_source_screenshot(self.cfg["source"], "jpg", 1280, 720, 80)
         return base64.b64decode(r.image_data.split(",", 1)[1])
 
     def native(self):
         """Full-resolution PNG of the game source, exactly as OBS has it (no scaling)."""
         r = self.obs().send("GetSourceScreenshot", {"sourceName": self.cfg["source"], "imageFormat": "png"}, raw=True)
         return base64.b64decode(r["imageData"].split(",", 1)[1])
-
-    def probe_native(self):
-        try:
-            img = cv2.imdecode(np.frombuffer(self.native(), np.uint8), cv2.IMREAD_COLOR)
-            self.status["native"] = f"{img.shape[1]}x{img.shape[0]}"
-        except Exception as e:
-            self.status["native"] = f"unknown ({friendly(e)})"
 
     def clip_rule(self, ev):
         """Save the OBS replay buffer ~8 s after a big moment (the reaction is the content)."""
