@@ -220,12 +220,22 @@ class Reader:
             # (either is enough; the hints can be toggled off)
             self._gauges = self._find_gauges(gray)
             self._vgauge = None if self._gauges else self._find_vehicle_gauge(gray)
-            if self._gauges or self.tpl.seen(gray, "collective_lift", "deploy_flares", thresh=0.8):
+            heli_keys = self.tpl.seen(gray, "collective_lift", "deploy_flares", thresh=0.8)
+            seat_keys = self.tpl.seen(gray, "change_seat", thresh=0.8)   # every seat, passengers too
+            if self._gauges or heli_keys:
                 self._pilot_last = t
-            elif self._vgauge or self.tpl.seen(gray, "change_seat", thresh=0.8):
+            elif self._vgauge or seat_keys:          # driver or passenger (benged: passengers count too)
                 self._vehicle_last = t
             elif self.tpl.seen(gray, "hammer", thresh=0.75):    # building tool in hand
                 self._hammer_last = t
+            # out of the vehicle: no gauges and no control list for 3 checks in a row (1.5 s), in game
+            # (the list is on screen in every seat, and never on foot) -> drop pilot/vehicle now
+            if self._gauges or self._vgauge or heli_keys or seat_keys or self.state["screen"] != "none":
+                self._out = 0
+            else:
+                self._out = getattr(self, "_out", 0) + 1
+                if self._out >= 3:                   # 1.5 s
+                    self._pilot_last = self._vehicle_last = -999
         if self.state["screen"] == "vendor" and self._due("vcash", 0.5):
             self._read_vendor_wallet(frame, ev)          # purchases = wallet going down in the store
         if in_game:
@@ -387,9 +397,9 @@ class Reader:
     def _read_centerfeed(self, frame, ev):
         """XP from the bottom-centre reward list (the boxed '+$3,500' running total and the newest
         ~4 entries under it, which scroll up; money and XP are separate entries).
-        * passengers / tactical deployments: XP = how much the running total grew x XP_PER_DOLLAR
-          (the total reads reliably even when single lines don't)
-        * everything else: XP entries ('BUILDING COMPLETE 3XP') counted as they appear"""
+        Only passengers / tactical deployments are counted here: XP = how much the running total
+        grew x XP_PER_DOLLAR (the total reads reliably even when single lines don't). All other
+        XP (building, revives ...) comes from the top-right feed (overlay: H.xp)."""
         lines = sorted(self.cf_lines.read(crop(frame, "centerfeed")), key=lambda x: x[2][0])
         total, entries = None, []
         for t, c, _ in lines:
@@ -432,23 +442,6 @@ class Reader:
                     self._cf_total = total
             self._cf_tcand = total
 
-        # 2) other rewards: count their XP entries (two matching reads; new at the bottom)
-        other = [e for e in entries if e[0] not in self.XP_PER_DOLLAR]
-        if not other:
-            return
-        prev_raw, self._cf_raw = self._cf_raw, other
-        if prev_raw != other:
-            return
-        tr = self._cf
-        k = 0
-        for n in range(min(len(tr), len(other)), 0, -1):
-            if tr[len(tr) - n:] == other[:n]:
-                k = n
-                break
-        for kind, typ, val in other[k:]:
-            if typ == "xp" and 0 < val <= 5000:
-                ev.append(dict(type="xpgain", kind=kind, amount=val))
-        self._cf = (tr + other[k:])[-8:]
 
     def _read_xp(self, frame, ev):
         lines = self.xp_lines.read(crop(frame, "xpfeed"))

@@ -1,2 +1,2 @@
-1.9.0
-Six-role XP now read from the bottom-centre reward list (passengers and tactical deployments counted from the running total, other XP entries one by one), time-building-this-match clock on the Benged Builds blueprint, Benged Air / 42.0 FM end about 6 s after you get out instead of 30 s.
+1.9.1
+Right-side panels sit at the bottom right on every channel; leaving a heli or vehicle switches back about 4 s after you step out; riding as a passenger counts as a vehicle again; XP from building, revives etc. counted from the top-right feed again (passengers and deployments from the bottom list).
