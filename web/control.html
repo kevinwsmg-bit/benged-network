@@ -110,6 +110,9 @@ button.go{background:var(--amber);color:#171100;border-color:var(--amber)}
         <button data-ev='{"type":"state","pilot":true,"vehicle":false,"scoped":false,"hurt":false,"screen":"none"}'>Pilot seat</button>
         <button data-ev='{"type":"state","pilot":false,"vehicle":true,"scoped":false,"hurt":false,"screen":"none"}'>In a vehicle</button>
         <button data-ev='{"type":"state","pilot":false,"vehicle":false,"scoped":false,"hurt":false,"screen":"none"}'>On foot</button>
+        <button data-ev='{"type":"state","pilot":false,"vehicle":false,"scoped":false,"hurt":false,"screen":"vendor"}'>Open a vendor</button>
+        <button data-buy="1500">Buy something ($1,500)</button>
+        <button data-buy="300">Buy something ($300)</button>
       </div>
       <p class="hint">Channels switch as soon as the reader is sure: Benged Air the moment you're in the pilot seat, 42.0 Benged FM after 2 s in a vehicle, Benged Builds on a build, Dr. Benged on a revive. The newest activity wins. Back to Combat 30 s after the activity stops. The knocked-down screen closes itself after 6 s. Test buttons go to the overlay the same way real events do.</p>
       <h2 style="margin-top:14px">Start fresh</h2>
@@ -149,7 +152,11 @@ $('dbg').onclick=async()=>{$('dbg').textContent='Saving…';const r=await api('/
 const SC={spd_label:'heli SPD',alt_label:'heli ALT',vspd_label:'car SPD',collective_lift:'heli keys',change_seat:'seat keys',hammer:'hammer',equipment_vendor:'vendor',inventory:'menu',view_damage_log:'downed'};
 $('reset').onclick=async()=>{if(!confirm('Reset the overlay? Kills, streaks, crashes, tips and the money chart all go back to zero.'))return;
   await api('/api/reset',{});$('log').innerHTML='';$('resetMsg').textContent='Done · fresh start';setTimeout(()=>$('resetMsg').textContent='',5000);};
-$('tests').onclick=e=>{const b=e.target.closest('button');if(b)api('/api/test',JSON.parse(b.dataset.ev));};
+let testWallet=null;   // "Buy" test buttons: the wallet going down while at a vendor = a purchase
+$('tests').onclick=async e=>{const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.buy){if(testWallet==null){testWallet=10000;await api('/api/test',{type:'cash',match:0,wallet:testWallet});}
+    testWallet-=+b.dataset.buy;api('/api/test',{type:'cash',match:0,wallet:testWallet});return;}
+  api('/api/test',JSON.parse(b.dataset.ev));};
 async function poll(){try{const s=await api('/api/status');
   $('obsPill').className='pill '+(s.obs==='connected'||s.obs==='replay'?'ok':'bad');$('obsTxt').textContent='OBS '+s.obs;
   $('ovPill').className='pill '+(s.overlays>0?'ok':'bad');$('ovTxt').textContent=s.overlays>0?s.overlays+' overlay connected':'overlay NOT connected (check the OBS browser source URL)';

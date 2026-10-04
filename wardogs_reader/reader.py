@@ -222,6 +222,8 @@ class Reader:
                 self._vehicle_last = t
             elif self.tpl.seen(gray, "hammer", thresh=0.75):    # building tool in hand
                 self._hammer_last = t
+        if self.state["screen"] == "vendor" and self._due("vcash", 0.5):
+            self._read_vendor_wallet(frame, ev)          # purchases = wallet going down in the store
         if in_game:
             if self._due("cash", 1.0):
                 self._read_cash(frame, ev)
@@ -315,6 +317,37 @@ class Reader:
             if self._cash is None or abs(best[1] - self._cash[1]) < 60000:
                 self._cash = best
                 ev.append(dict(type="cash", match=best[0], wallet=best[1]))
+
+    def _read_vendor_wallet(self, frame, ev):
+        """Vendor screens show [ $0 ] [ $9,649 ] [ 120 ] side by side at the top right: split the strip
+        into its boxes (gaps between bright columns), read each, and take the biggest $ amount."""
+        h, w = frame.shape[:2]
+        roi = frame[0:int(0.055 * h), int(0.74 * w):w]
+        on = (cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY) > 150).sum(axis=0) > 0
+        vals, x = [], 0
+        while x < len(on):
+            if on[x]:
+                a, gap = x, 0
+                while x < len(on) and gap < 4:
+                    gap = 0 if on[x] else gap + 1
+                    x += 1
+                b = x - gap
+                if b - a >= 14:
+                    txt = _fix_money_text(read_line(roi[:, max(0, a - 2):b + 2])[0])
+                    vals += [_money(s, n) for s, n in MONEY_RE.findall(txt)]
+            x += 1
+        if not vals:
+            return
+        wallet = max(vals)
+        self._vw_hist = (getattr(self, "_vw_hist", []) + [wallet])[-3:]
+        best, n = Counter(self._vw_hist).most_common(1)[0]
+        old = self._cash[1] if self._cash else None
+        # two matching reads in a row (faster than in-game cash, so the ka-ching lands on time)
+        if n >= 2 and best != old and (old is None or abs(best - old) < 60000):
+            match = self._cash[0] if self._cash else 0
+            self._cash = (match, best)
+            self._cash_hist = []
+            ev.append(dict(type="cash", match=match, wallet=best, via="vendor"))
 
     def _read_xp(self, frame, ev):
         lines = self.xp_lines.read(crop(frame, "xpfeed"))

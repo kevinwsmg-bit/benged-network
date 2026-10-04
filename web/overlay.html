@@ -342,7 +342,7 @@ header.top p{margin:0;color:var(--muted);max-width:74ch;line-height:1.45}
 
 /* ---- takeovers ---- */
 .take{left:340px;top:190px;width:1100px;height:640px;display:none;animation:pin .45s ease-out}
-.stage[data-mode="deploy"] .t-deploy,.stage[data-mode="dead"] .t-dead,.stage[data-mode="shop"] .t-shop{display:block}
+.stage[data-mode="deploy"] .t-deploy,.stage[data-mode="dead"] .t-dead{display:block}
 .t-deploy .ep{position:absolute;inset:40px 60px;background:#d9c08a;color:#231b0d;border:2px solid #7a6337;padding:40px 50px;box-shadow:0 30px 80px rgba(0,0,0,.6)}
 .t-deploy .ep .k{font:700 18px var(--f-ui);letter-spacing:.3em}
 .t-deploy .ep .h{font:400 80px/1.02 var(--f-stamp);margin:18px 0;text-wrap:balance}
@@ -456,6 +456,31 @@ button.play{background:#2d3a1c;border-color:#5f7a35}
 .tj-bill::after{content:"$";position:absolute;inset:0;display:grid;place-items:center;font:700 11px var(--f-ui);color:#e8ffe8}
 @keyframes tjbill{0%{transform:translate(-14px,0) rotate(-24deg)}30%{transform:translate(12px,26px) rotate(16deg)}60%{transform:translate(-8px,56px) rotate(-10deg)}85%{opacity:1}100%{transform:translate(0,98px) rotate(0) scale(.7);opacity:0}}
 .stage[data-mode="dead"] .tipjar,.stage[data-mode="deploy"] .tipjar{opacity:.35}
+
+/* ---------- Benged Shopping Network: a TV-shopping banner along the bottom (the store stays visible) ---------- */
+.shopbar{left:0;right:0;bottom:0;height:118px;display:none;align-items:stretch;background:#3d0426;border-top:5px solid #ffd400;box-shadow:0 -10px 30px rgba(0,0,0,.45);font-family:var(--f-ui);z-index:5}
+.stage[data-mode="shop"] .shopbar{display:flex;animation:shopin .45s cubic-bezier(.3,1.3,.5,1)}
+.stage[data-mode="shop"] .spine{opacity:0}
+@keyframes shopin{from{transform:translateY(130px)}to{transform:none}}
+.shopbar>div{display:flex;flex-direction:column;justify-content:center;padding:0 22px;border-right:2px solid rgba(255,212,0,.35)}
+.sb-logo{width:350px;white-space:nowrap;background:radial-gradient(circle at 30% 30%,#ff2d9b,#a8005e);color:#fff}
+.sb-logo b{font:400 31px/0.98 var(--f-stamp);letter-spacing:.02em;text-shadow:3px 3px 0 #3d0426}
+.sb-logo small{font:700 14px var(--f-ui);color:#ffd400;letter-spacing:.18em;margin-top:4px}
+.sb-time{width:330px;color:#fff}
+.sb-time small,.sb-cart small,.sb-stats small{font:700 13px var(--f-ui);letter-spacing:.16em;color:#ffb3d9}
+.sb-time .clk{font:400 46px/1 var(--f-lcd);color:#fff}
+.sb-time .cap{font:700 17px var(--f-ui);color:#ffd400;letter-spacing:.06em;white-space:nowrap}
+.sb-cart{flex:1;color:#fff;position:relative}
+.sb-cart .row{display:flex;align-items:baseline;gap:22px}
+.sb-cart .spent{font:400 52px/1 var(--f-stamp);color:#ffd400}
+.sb-cart .avg{font:700 18px var(--f-ui);color:#ffb3d9}
+.sb-cart .over{font:400 26px/1 var(--f-stamp);color:#3d0426;background:#ffd400;padding:2px 10px;transform:rotate(-4deg);display:none}
+.sb-cart.over .over{display:inline-block;animation:blink .5s steps(2) infinite}
+.sb-stats{width:420px;color:#fff;font:700 17px var(--f-ui);gap:6px;border-right:0!important}
+.sb-stats span b{color:#ffd400}
+.sold{position:absolute;left:40px;top:-74px;font:400 40px/1 var(--f-stamp);color:#3d0426;background:#ffd400;padding:6px 16px;border:4px solid #3d0426;transform:rotate(-6deg) scale(0);opacity:0;pointer-events:none}
+.sold.go{animation:soldpop 1.6s cubic-bezier(.3,1.6,.5,1) forwards}
+@keyframes soldpop{0%{transform:rotate(-6deg) scale(.2);opacity:0}15%{transform:rotate(-6deg) scale(1.15);opacity:1}25%{transform:rotate(-6deg) scale(1)}80%{opacity:1;transform:rotate(-6deg) translateY(-14px)}100%{opacity:0;transform:rotate(-6deg) translateY(-40px)}}
 body.live{background:transparent!important;padding:0!important;overflow:hidden}
 body.live .wrap{max-width:none;gap:0}
 body.live header.top,body.live .console,body.live .fsbtn{display:none!important}
@@ -639,6 +664,14 @@ body.live.offline .livebadge{display:block}
         <div class="abs yeet" id="yeet">YEET</div>
         <div class="abs toast" id="toast"></div>
 
+        <div class="abs shopbar" id="shopbar">
+          <div class="sb-logo"><b>BENGED<br>SHOPPING NETWORK</b><small>CH 09 · LIVE IN STORE</small></div>
+          <div class="sb-time"><small>TIME IN THE STORE</small><div class="clk" id="sbClk">0:00</div><div class="cap" id="sbCap">JUST BROWSING</div></div>
+          <div class="sb-cart" id="sbCart"><small>THE PRICE IS WRONG · HOW MUCH WILL BENGED BLOW?</small>
+            <div class="row"><span class="spent" id="sbSpent">$0</span><span class="avg" id="sbAvg">first trip of the night</span><span class="over">OVER BUDGET</span></div>
+            <div class="sold" id="sold">SOLD!</div></div>
+          <div class="sb-stats"><span>Longest trip tonight <b id="sbLong">0:00</b></span><span>Shopping tonight <b id="sbTot">0:00</b> · <b id="sbPct">0%</b> of stream</span></div>
+        </div>
         <div class="spine">
           <div class="bug" id="bug"><span class="num" id="bugNum">CH 05</span><span id="bugName">COMBAT</span></div>
           <div class="ticker" id="ticker"><span class="t-in"><b>TONIGHT</b>Stream just started</span></div>
@@ -762,6 +795,8 @@ const SFX={kill:()=>{tone(880,.08,'square',.05);tone(1320,.1,'square',.05,.07)},
  crash:()=>{const o=tone(700,1,'sawtooth',.08);if(o)o.frequency.exponentialRampToValueAtTime(80,AC.currentTime+1);noise(1.2,.2,1200)},
  bro:()=>tone(330,.25,'square',.06),broke:()=>{tone(98,.35,'sawtooth',.1);tone(82,.5,'sawtooth',.1,.35)},
  coin:()=>{tone(1976,.08,'square',.04);tone(2637,.2,'square',.04,.06)},
+ jingle:()=>{[[784,0],[988,.12],[1175,.24],[1568,.36],[1319,.6],[1568,.72]].forEach(([f,d])=>tone(f,d>.5?.22:.14,'triangle',.06,d));tone(392,.5,'sine',.05,0);tone(523,.5,'sine',.05,.36)},
+ kaching:()=>{noise(.06,.12,6000);tone(1568,.08,'square',.04,.04);[2637,3136].forEach((f,i)=>tone(f,.35,'triangle',.06,.1+i*.06))},
  ching:()=>{[0,.17].forEach(d=>{tone(2637,.06,'square',.035,d);tone(3520,.16,'triangle',.05,d+.05)})},level:()=>{[392,523,659,784,1047].forEach((f,i)=>tone(f,.12,'square',.05,i*.07))},scratch:()=>noise(.25,.15,2500)};
 
 /* ---------- particles ---------- */
@@ -819,11 +854,14 @@ function loop(now){
  if(a==='reviving'&&!LIVE){acc.rev+=rdt;if(acc.rev>1.2){acc.rev=0;doRevive(true);}}
  if(a==='zone'&&!LIVE){acc.tick+=rdt;if(acc.tick>1.4){acc.tick=0;S.zoneCash+=160;S.xp.ASSAULT+=1;feed('CONTROL ZONE PRESENCE +$160',ICON.flag);cashAdd(160);log('CONTROL ZONE PRESENCE +$160 (counts as combat)');}}
  if(a==='sniping')S.xp.RECON+=rdt*.5;
+ if(a==='shopping'&&typeof LIVE==='undefined'){acc.buy=(acc.buy||0)+rdt;if(acc.buy>2.4){acc.buy=0;if(Math.random()<.55){const p=pick([150,300,450,1500,2200]);cashAdd(-p);shopBuy(p);}}}
  // screen modes
  if(a==='shopping')S.inter='shop';else if(S.inter==='shop')S.inter=null;
  if(S.inter==='dead'&&t>S.deadUntil){S.inter='deploy';S.deployUntil=t+70;renderEpisode();log('Loading screen → Episode Open');}
  if(a==='loading'&&S.inter!=='dead'){if(S.inter!=='deploy'){S.inter='deploy';renderEpisode();log('Loading screen detected → Episode Open');}S.deployUntil=t+70;}
  if(S.inter==='deploy'&&t>S.deployUntil){S.inter=null;if(S.act==='loading'||S.act==='dead')setAct('idle',true);S.lifeStart=t;S.lifeCash=0;}
+ if(S.inter==='shop'&&S.prevInter!=='shop')shopEnter();
+ if(S.prevInter==='shop'&&S.inter!=='shop')shopLeave();
  if(S.prevInter&&!S.inter&&S.pendingFlip){S.pendingFlip=false;S.lastCard=t;flip(S.host);}
  S.prevInter=S.inter;
  stage.classList.toggle('hurt',t<S.hurtUntil);
@@ -840,7 +878,7 @@ function loop(now){
  else ch.classList.remove('on');
  acc.sample+=rdt;if(acc.sample>.25){acc.sample=0;S.fdr.push([S.spd,S.agl]);if(S.fdr.length>150)S.fdr.shift();
   S.money.push([S.wallet-S.startWallet,ROLES.reduce((s,k)=>s+S.xp[k],0)]);if(S.money.length>150)S.money.shift();}
- render(e);fxStep(rdt);
+ render(e);shopRender();fxStep(rdt);
 }
 function switchHost(m){
  if(m===S.host)return;const t=S.gt,old=S.host,stint=S.stint,dur=t-S.hostSince;
@@ -1029,6 +1067,25 @@ function renderTiles(){const el=$('ktiles');let h='';for(let i=0;i<6;i++){const 
 let tickI=0,tickT=0,radT=0,ribT=0,tileSig='';
 function ticker(){const items=[['TONIGHT',S.kills+' kills · '+S.crashes+' heli crash'+(S.crashes===1?'':'es')+' · '+money(S.wallet-S.startWallet)+' earned'],['AURA',(S.aura>=0?'+':'')+S.aura.toLocaleString()+(S.aura<-5000?' · AURA BANKRUPTCY':'')],['TIP JAR',money(S.tipsAmt)+' sent · $0 received'],['CRASH RECORD','5 in one stream (Sep 2026). Tonight: '+S.crashes],['LOBBY','[LoL] Medical on 11 kills, considered armed'],['CAREER','Rulings against benged: '+S.rulings[0]+'–'+S.rulings[1]]];
  const it=items[tickI++%items.length];$('ticker').innerHTML='<span class="t-in"><b>'+it[0]+'</b>'+it[1]+'</span>';}
+
+/* ---------- Benged Shopping Network: trip timer, purchases, receipt ---------- */
+const SHOP={trip:null,trips:[],t0:Date.now(),total:0};
+const SHOP_CAPS=[[15,'JUST BROWSING'],[30,'COMPARING PRICES'],[60,'ASKING FOR A MANAGER'],[90,'MALL WALKER'],[120,'SECURITY HAS BEEN CALLED'],[1e9,'HE LIVES HERE NOW']];
+function mmss(s){s=Math.floor(s);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');}
+function shopEnter(){SHOP.trip={t0:Date.now(),spent:0};SFX.jingle();}
+function shopLeave(){const tr=SHOP.trip;if(!tr)return;SHOP.trip=null;const dur=(Date.now()-tr.t0)/1000;
+ SHOP.trips.push({dur,spent:tr.spent});SHOP.total+=dur;
+ if(dur>3)card('THANK YOU FOR SHOPPING','#ff2d9b',mmss(dur)+' in the store · '+(tr.spent?money(tr.spent)+' spent':'window shopping only'));}
+function shopBuy(amount){if(!SHOP.trip||amount<=0)return;SHOP.trip.spent+=amount;
+ const s=$('sold');s.textContent='SOLD! −'+money(amount);s.classList.remove('go');void s.offsetWidth;s.classList.add('go');SFX.kaching();}
+function shopRender(){const tr=SHOP.trip;if(!tr)return;const now=Date.now(),dur=(now-tr.t0)/1000;
+ $('sbClk').textContent=mmss(dur);$('sbCap').textContent=SHOP_CAPS.find(c=>dur<c[0])[1];
+ $('sbSpent').textContent=money(tr.spent);
+ const paid=SHOP.trips.filter(x=>x.spent>0),avg=paid.length?paid.reduce((a,x)=>a+x.spent,0)/paid.length:0;
+ $('sbAvg').textContent=avg?'avg trip '+money(Math.round(avg)):'first trip of the night';
+ $('sbCart').classList.toggle('over',avg>0&&tr.spent>avg);
+ const longest=Math.max(dur,...SHOP.trips.map(x=>x.dur),0),tot=SHOP.total+dur;
+ $('sbLong').textContent=mmss(longest);$('sbTot').textContent=mmss(tot);$('sbPct').textContent=Math.round(100*tot/Math.max(1,(now-SHOP.t0)/1000))+'%';}
 function render(e){
  const t=S.gt,mode=S.inter||S.host,chn=CH[mode];
  stage.dataset.mode=mode;stage.dataset.show=S.host;stage.dataset.act=S.act;
@@ -1163,7 +1220,8 @@ if(LIVE){
    else if(k==='bribe')toast('BRIBE · '+money(Math.abs(e.money||0)));
   },
   speed(e){if(e.spd!=null)S.spd=e.spd;},
-  cash(e){S.cash=e.match;S.wallet=e.wallet;if(!S.gotCash){S.gotCash=true;S.startWallet=e.wallet;}renderCash();
+  cash(e){if(S.inter==='shop'&&S.gotCash&&e.wallet<S.wallet&&S.wallet-e.wallet<60000)shopBuy(S.wallet-e.wallet);  /* bought something */
+   S.cash=e.match;S.wallet=e.wallet;if(!S.gotCash){S.gotCash=true;S.startWallet=e.wallet;}renderCash();
    if(e.match<0&&e.match<S.low){S.low=e.match;stage.classList.add('broke');SFX.broke();clearTimeout(S._bt);S._bt=setTimeout(()=>stage.classList.remove('broke'),20000);}
    if(e.match>=0)stage.classList.remove('broke');},
   pilot(e){if(e.spd!=null)S.spd=e.spd;if(e.agl!=null)S.agl=e.agl;if(e.hdg!=null)S.hdg=e.hdg;},
