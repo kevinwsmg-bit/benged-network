@@ -284,6 +284,7 @@ header.top p{margin:0;color:var(--muted);max-width:74ch;line-height:1.45}
 .lv{display:grid;grid-template-columns:1fr auto;gap:2px 8px;font:600 15px/1.35 var(--f-ui)}
 .lv span:nth-child(even){font-variant-numeric:tabular-nums;color:var(--ch)}
 .lv .hot{color:#fff;text-shadow:0 0 8px var(--ch)}
+.core .tele{display:none}  /* $BNGD chart: off for now, benged wants less clutter */
 .tele{position:relative;background:#030a03;padding:8px 12px 10px;font-family:var(--f-lcd);color:var(--ch);clip-path:polygon(0 0,calc(100% - 18px) 0,100% 18px,100% 100%,18px 100%,0 calc(100% - 18px));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ch) 50%,transparent),inset 0 0 30px color-mix(in srgb,var(--ch) 15%,transparent)}
 .tele .hd{display:flex;justify-content:space-between;font-size:24px;letter-spacing:.04em}
 .tele .hd .up{color:#7cff6b}.tele .hd .dn{color:#ff5a4f}
@@ -570,7 +571,7 @@ body.live.offline .livebadge{display:block}
 
         <!-- persistent core -->
         <div class="abs core">
-          <div class="card"><h4>Six-role XP · tonight <span id="lvlTot">LVL 51</span></h4>
+          <div class="card"><h4>Six-role XP · this stream <span id="lvlTot">LVL UPS 0</span></h4>
             <div class="radarc"><svg viewBox="0 0 200 170" id="radar"></svg><div class="lv" id="lv"></div></div></div>
           <div class="tele"><div class="hd"><span id="teleT">$BNGD · SESSION</span><span id="teleV" class="up">+$0 ▲</span></div>
             <canvas id="teleC" width="760" height="236"></canvas><div class="lg" id="teleL"></div></div>
@@ -583,10 +584,10 @@ body.live.offline .livebadge{display:block}
             <div class="card">
               <div class="row"><span>Longest shot tonight</span><span id="cLong">—</span></div>
               <div class="row"><span>Zone earnings</span><span id="cZone">$0</span></div>
-              <div class="row"><span>Lobby leader</span><span>[LoL] Medical · 11</span></div></div>
+              <div class="row"><span>Revives this life</span><span id="cRevLife">0</span></div></div>
           </div>
           <div class="mp mp-pilot">
-            <div class="sign"><small>THIS AIRCREW HAS GONE</small><div class="d" id="signClk">00:14:32</div><small>WITHOUT A HELICOPTER INCIDENT</small><div class="life" id="signLife">LIFETIME INCIDENTS: 5</div></div>
+            <div class="sign"><small>THIS AIRCREW HAS GONE</small><div class="d" id="signClk">00:00:00</div><small>WITHOUT A HELICOPTER INCIDENT</small><div class="life" id="signLife">LIFETIME INCIDENTS: 5</div></div>
             <div class="card"><div class="prow"><div class="sweep"><i style="left:70px;top:30px"></i><i style="left:34px;top:74px;animation-delay:.5s"></i></div>
               <div><h4>Callsign</h4><div class="flap" id="flap">EAGLE 1-1</div>
                 <div class="betbar"><div class="land" style="flex:62">!land 62%</div><div class="crash" style="flex:38">!crash 38%</div></div></div></div></div>
@@ -675,7 +676,7 @@ body.live.offline .livebadge{display:block}
         <div class="spine">
           <div class="bug" id="bug"><span class="num" id="bugNum">CH 05</span><span id="bugName">COMBAT</span></div>
           <div class="ticker" id="ticker"><span class="t-in"><b>TONIGHT</b>Stream just started</span></div>
-          <div class="crashchip"><span>SINCE LAST<br>HELI INCIDENT</span><span class="clk" id="chipClk">00:14:32</span></div>
+          <div class="crashchip"><span>MATCH<br>K / D / A</span><span class="clk" id="chipClk">0 / 0 / 0</span><span id="chipKda">KDA 0.0</span></div>
           <div class="jack"><span>BENGED<br>PROGRESSIVE</span><span class="v" id="jack">12,500</span></div>
         </div>
         <div class="abs ribbon" id="ribbon"></div>
@@ -774,7 +775,7 @@ const S={gt:0,act:'idle',host:'combat',hostSince:0,lastCard:-999,inter:null,prev
  cash:14846,wallet:811781,kills:0,lifeKills:0,lifeStart:0,lifeCash:0,lastKillGt:-999,deaths:0,crashes:0,life:5,lastCrashGt:-872,aura:0,jack:12500,
  builds:[],supply:[],revive:[],flyStart:null,flyLast:-999,driveStart:null,driveLast:-999,driveTot:0,
  totBuilds:0,totRev:0,osha:0,drives:0,td:0,fumbles:0,zoneCash:0,tipsAmt:0,tipsIn:0,tipsInN:0,longest:0,recent:[],
- xp:{ASSAULT:30,MEDIC:18,RECON:22,SUPPORT:55,DRIVER:20,PILOT:40},lvl:{ASSAULT:11,MEDIC:6,RECON:7,SUPPORT:13,DRIVER:5,PILOT:9},
+ xp:{ASSAULT:0,MEDIC:0,RECON:0,SUPPORT:0,DRIVER:0,PILOT:0},lvlUps:0,revLife:0,mk:0,md:0,ma:0,flightClean:0,lvl:{ASSAULT:11,MEDIC:6,RECON:7,SUPPORT:13,DRIVER:5,PILOT:9},
  stint:{kills:0,builds:0,revives:0,crashes:0,supply:0},pendingFlip:false,killers:{},cod:{building:38,flying:22,fighting:40},
  rulings:[14,3],spd:120,agl:60,hdg:90,roll:0,pitch:0,fdr:[],money:[],sound:false,ep:37,epFmt:0,callIdx:0,startWallet:811781};
 
@@ -853,7 +854,8 @@ function loop(now){
   if(S.host==='builder')burst(1690,760,14,['#ffb000','#fff','#9fc3ff'],260,500,4,.8);}}
  if(a==='reviving'&&!LIVE){acc.rev+=rdt;if(acc.rev>1.2){acc.rev=0;doRevive(true);}}
  if(a==='zone'&&!LIVE){acc.tick+=rdt;if(acc.tick>1.4){acc.tick=0;S.zoneCash+=160;S.xp.ASSAULT+=1;feed('CONTROL ZONE PRESENCE +$160',ICON.flag);cashAdd(160);log('CONTROL ZONE PRESENCE +$160 (counts as combat)');}}
- if(a==='sniping')S.xp.RECON+=rdt*.5;
+ if(a==='flying')S.flightClean+=rdt*T;
+ if(a==='sniping'&&!LIVE)S.xp.RECON+=rdt*.5;
  if(a==='shopping'&&typeof LIVE==='undefined'){acc.buy=(acc.buy||0)+rdt;if(acc.buy>2.4){acc.buy=0;if(Math.random()<.55){const p=pick([150,300,450,1500,2200]);cashAdd(-p);shopBuy(p);}}}
  // screen modes
  if(a==='shopping')S.inter='shop';else if(S.inter==='shop')S.inter=null;
@@ -915,8 +917,8 @@ const VICT=['Samstre007','Devastated','@squigle8','BoltBolt','HEyBIGS','OVOSkywa
 function kill(o){
  const t=S.gt,d=(o.d!=null)?o.d:(LIVE?0:Math.round(rnd(8,95))),w=o.w||(LIVE?'unknown':'rifle'),v=o.v||(LIVE?'enemy':pick(VICT));
  const dbl=t-S.lastKillGt<200;S.lastKillGt=t;
- S.kills++;S.lifeKills++;S.stint.kills++;cashAdd(2000);S.longest=Math.max(S.longest,d);
- S.xp[S.act==='sniping'?'RECON':w==='nade'?'SUPPORT':'ASSAULT']+=6;
+ S.kills++;S.mk++;S.lifeKills++;S.stint.kills++;cashAdd(2000);S.longest=Math.max(S.longest,d);
+ if(!LIVE)S.xp[S.act==='sniping'?'RECON':w==='nade'?'SUPPORT':'ASSAULT']+=6;
  S.recent.unshift({w,d,v});if(S.recent.length>6)S.recent.pop();
  killfeed(ME,w,d,v,true,o.skull);
  log('☠ +$2,000 CONFIRMED + kill line ['+d+' m] '+v+(S.host!=='combat'?' → red flash, '+CH[S.host].name+' stays':''));
@@ -932,7 +934,7 @@ function kill(o){
  SFX.kill();
 }
 function doRevive(auto){
- S.revive.push(S.gt);S.totRev++;S.stint.revives++;S.xp.MEDIC+=4;feed('REVIVED TEAMMATE 200XP',ICON.cross);cashAdd(300);
+ S.revive.push(S.gt);S.totRev++;S.revLife++;S.stint.revives++;if(!LIVE)S.xp.MEDIC+=4;feed('REVIVED TEAMMATE 200XP',ICON.cross);cashAdd(300);
  $('mDx').textContent=pick(['Acute Skill Deficiency','Lead Poisoning','Standing In The Open','Heli-Induced Trauma','Main Character Syndrome']);
  log('REVIVED TEAMMATE 200XP ✚ / +$300 → medic '+Math.min(2,within(S.revive,90))+'/2');SFX.revive();
  if(S.host==='medic')burst(1690,780,16,['#19e39a','#ffffff','#e0262b'],240,-60,4,.9);
@@ -940,6 +942,7 @@ function doRevive(auto){
 }
 function die(killer,w,d,selfKill){
  const t=S.gt,modeAt=S.host;S.deaths++;$('nowServ').textContent=S.deaths;
+ S.revLife=0;if(typeof LIVE==='undefined'||!LIVE)S.md++;   /* live: a death is counted when he actually dies, not when knocked */
  $('cause').textContent=selfKill?'His own helicopter':killer;
  const doing={builder:'BUILDING',pilot:'FLYING',driver:'DRIVING',medic:'REVIVING',combat:'FIGHTING'}[modeAt];
  $('causeD').textContent=selfKill?'Little bird · 1 m · while FLYING (self-inflicted)':w+' · '+d+' m · while '+doing;
@@ -965,7 +968,7 @@ function crash(){
  log('AGL falling fast + SPD high → GPWS "bro." callouts');
 }
 function boom(){
- $('gpws').style.display='none';S.agl=0;S.crashes++;S.life++;S.stint.crashes++;S.lastCrashGt=S.gt;S.aura-=10000;
+ $('gpws').style.display='none';S.agl=0;S.flightClean=0;S.crashes++;S.life++;S.stint.crashes++;S.lastCrashGt=S.gt;S.aura-=10000;
  const heist=Math.round(S.jack*.25);S.jack-=heist;
  S.callIdx=Math.min(CALLS.length-1,S.callIdx+1);$('flap').textContent=CALLS[S.callIdx];
  killfeed(ME,'heli',1,ME,true,false);
@@ -1002,7 +1005,9 @@ function tip(){if(++tipN%3){const a=pick([15,20,25,30]);cashAdd(a);feed('TIP - '
  S.tipsAmt+=30;cashAdd(-30);feed('TIP → REDMANTISFPS -$30');
  if(S.cash<0){card('DONATING WHILE IN DEBT','#ffcc33','Tip Jar: '+money(S.tipsAmt)+' sent tonight');SFX.broke();}else{SFX.coin();toast('TIP JAR · '+money(S.tipsAmt)+' SENT TONIGHT');burst(1060,120,18,['#ffcc33','#fff'],300,500,4,.8);}
  log('TIP → REDMANTISFPS -$30 → Tip Jar');}
-function levelUp(){const role=CH[S.host].role||'ASSAULT';S.lvl[role]++;S.xp[role]+=15;card('LEVEL UP','#ffcc33',role+' '+S.lvl[role]);SFX.level();drawRadar(true);
+function addXP(role,pts){S.xp[role]=(S.xp[role]||0)+pts;}
+function fmtXP(v){v=Math.round(v);return v>=10000?Math.round(v/1000)+'k':v>=1000?(v/1000).toFixed(1)+'k':String(v);}
+function levelUp(){const role=CH[S.host].role||'ASSAULT';S.lvlUps++;card('LEVEL UP','#ffcc33',role+' · level-up #'+S.lvlUps+' this stream');SFX.level();drawRadar(true);
  burst(1580,370,70,['#ffcc33','#ff2d9b','#19e39a','#4d95ff','#fff'],650,700,6,1.4);log('Role level-up → '+role+' '+S.lvl[role]);}
 function hurt(){S.hurtUntil=S.gt+24;if(S.host!=='combat')cflash();log('Red damage vignette (2 frames)'+(S.host==='builder'?' → UNDER SIEGE':''));if(S.host==='builder'){toast('UNDER SIEGE · lofi girl has been reported MIA');SFX.scratch();}}
 
@@ -1031,8 +1036,8 @@ function drawRadar(fl){const cx=100,cy=90,r=62;let pts=[],dots='',ax='',lb='',ri
   ax+='<line x1="'+cx+'" y1="'+cy+'" x2="'+(cx+Math.cos(a)*r).toFixed(1)+'" y2="'+(cy+Math.sin(a)*r).toFixed(1)+'" stroke="rgba(160,160,160,.25)"/>';
   lb+='<text x="'+(cx+Math.cos(a)*(r+14)).toFixed(1)+'" y="'+(cy+Math.sin(a)*(r+12)+4).toFixed(1)+'" text-anchor="middle">'+k.slice(0,3)+'</text>';});
  $('radar').innerHTML=rings+ax+'<polygon class="shape'+(fl?' flare':'')+'" points="'+pts.join(' ')+'"/>'+dots+lb;
- const hot=CH[S.host].role;$('lv').innerHTML=ROLES.map(k=>'<span class="'+(k===hot?'hot':'')+'">'+k+'</span><span>'+S.lvl[k]+'</span>').join('');
- $('lvlTot').textContent='LVL '+ROLES.reduce((s,k)=>s+S.lvl[k],0);}
+ const hot=CH[S.host].role;$('lv').innerHTML=ROLES.map(k=>'<span class="'+(k===hot?'hot':'')+'">'+k+'</span><span>'+fmtXP(S.xp[k])+'</span>').join('');
+ $('lvlTot').textContent='LVL UPS '+S.lvlUps;}
 function driveTick(){[...$('drive').children].forEach((c,i)=>c.classList.toggle('on',i<(S.stint.supply%10)));
  if(S.stint.supply%3===0){S.drives++;S.td++;}$('dStat').textContent=S.drives+' · '+S.td+' · '+S.fumbles;
  const st=Math.floor(Math.random()*3);$('station').textContent=['PHONK','LOFI','YACHT ROCK'][st];[...$('presets').children].forEach((b,i)=>b.classList.toggle('on',i===st));$('dlv').textContent=S.supply.length;}
@@ -1096,7 +1101,8 @@ function render(e){
  stage.classList.toggle('mainc',S.lifeKills>=3&&mode!=='dead');$('mcTxt').textContent=S.lifeKills+' KILLS THIS LIFE';
  const sk=$('streak');sk.classList.toggle('on',S.lifeKills>=2&&mode!=='dead');sk.style.setProperty('--fs',Math.min(1.9,.8+S.lifeKills*.2));
  $('streakN').textContent=S.lifeKills;$('streakL').textContent=S.lifeKills>=5?'INFERNO':S.lifeKills>=4?'UNHINGED':S.lifeKills>=3?'ON FIRE':'WARMING UP';
- const since=t-S.lastCrashGt;$('chipClk').textContent=fmtH(since);$('signClk').textContent=fmtH(since);$('signLife').textContent='LIFETIME INCIDENTS: '+S.life+' · THIS STREAM: '+S.crashes;
+ $('chipClk').textContent=S.mk+' / '+S.md+' / '+S.ma;$('chipKda').textContent='KDA '+((S.mk+S.ma)/Math.max(1,S.md)).toFixed(1);
+ $('signClk').textContent=fmtH(S.flightClean);$('signLife').textContent='HELI INCIDENTS THIS STREAM: '+S.crashes;$('cRevLife').textContent=S.revLife;
  $('jack').textContent=S.jack.toLocaleString();
  const now=performance.now();
  if(now-tickT>4000){tickT=now;ticker();}
@@ -1162,10 +1168,12 @@ $('demo').addEventListener('click',()=>{if(demoT.length){stopDemo();return;}
 
 /* ================= LIVE: events from the reader ================= */
 if(LIVE){
- S.sound=true;S.gotCash=false;S.startWallet=S.wallet;S.low=0;S.revivedAt=-999;
+ S.sound=true;S.crashes=0;S.life=0;S.gotCash=false;
+ const XPROLE={build:'SUPPORT',build_complete:'SUPPORT',buildable_destroyed:'SUPPORT',fob_supplied:'SUPPORT',revive:'MEDIC',revive_assist:'MEDIC',heal:'MEDIC',supplies:'DRIVER',passenger:'PILOT',deploy:'PILOT',zone:'ASSAULT',zone_enter:'ASSAULT',wheels:'ASSAULT',kill_assist:'ASSAULT',spot:'RECON'};
+S.startWallet=S.wallet;S.low=0;S.revivedAt=-999;
  const sadTrombone=()=>{[392,370,349,311].forEach((f,i)=>tone(f,i===3?.9:.32,'sawtooth',.09,i*.34))};
  window.crashLive=function(){if(S.inter==='dead')return;const g=$('gpws');g.style.display='block';g.textContent='BROOOO—';SFX.bro();setTimeout(()=>{g.style.display='none';boomLive();},500);};
- function boomLive(){S.crashes++;S.life++;S.stint.crashes++;S.lastCrashGt=S.gt;S.aura-=10000;S.jack-=Math.round(S.jack*.25);
+ function boomLive(){S.flightClean=0;S.crashes++;S.life++;S.stint.crashes++;S.lastCrashGt=S.gt;S.aura-=10000;S.jack-=Math.round(S.jack*.25);
   S.callIdx=Math.min(CALLS.length-1,S.callIdx+1);$('flap').textContent=CALLS[S.callIdx];
   $('bH').textContent='FLIGHT DATA RECORDER RECOVERED — CRASH #'+S.life;const st=$('bStamp');if(S.crashes<=4){st.style.display='block';st.textContent=STAMPS[S.crashes-1];}else st.style.display='none';
   $('bbox').style.display='block';drawBB();SFX.crash();burst(960,560,90,['#ff6a00','#ffcc33','#555','#222'],900,600,7,1.4);
@@ -1173,13 +1181,13 @@ if(LIVE){
  const H={
   state(e){
    if(e.screen==='vendor'){setAct('shopping',true);return;}
-   if(e.screen==='loading'){if(S.inter==='dead')S.inter=null;setAct('loading',true);return;}
+   if(e.screen==='loading'){if(S.inter==='dead')S.inter=null;S.mk=S.md=S.ma=0;S.flightClean=0;S.revLife=0;setAct('loading',true);return;}   /* new match */
    if(e.screen==='down'||e.screen==='map'||e.screen==='menu')return;
    if(S.inter==='dead')return;
    setAct(e.pilot?'flying':e.vehicle?'driving':e.hammer?'building':e.scoped?'sniping':'idle',true);
    if(e.hurt){S.hurtUntil=S.gt+24;if(S.host!=='combat')cflash();}
   },
-  kill(e){if(S.inter!=='dead')kill({d:e.dist,v:e.victim||'',w:e.weapon});},
+  kill(e){if(S.inter!=='dead'){addXP((e.dist||0)>=100?'RECON':'ASSAULT',100);kill({d:e.dist,v:e.victim||'',w:e.weapon});}},
   selfkill(e){if(e.pilot||S.host==='pilot'){S.flyLast=S.gt;crashLive();}},
   down(e){if(S.gt-(S.lastDown||-99)<20)return;S.lastDown=S.gt;
    const wasFlying=S.host==='pilot'&&S.act==='flying';
@@ -1193,14 +1201,18 @@ if(LIVE){
   killed_by(e){if(S.inter==='dead'&&e.killer){$('cause').textContent=e.killer;if(e.dist)$('causeD').textContent=e.dist+' m · '+$('causeD').textContent;}},
   up(e){if(S.inter==='dead'){S.inter=null;S.act='idle';markAct('idle');}
    setTimeout(()=>{if(S.gt-S.revivedAt<200)card('SAVED','#19e39a','A medic got him back up');else card('BACK IN ACTION','#8fb3c9','Down for '+Math.round(e.after||0)+' s');},1200);},
-  died(){},
+  died(){S.md++;},
   xp(e){const t=S.gt,k=e.kind;
-   if(k==='build'||k==='build_complete'){if(k==='build_complete'||!S.builds.length||t-S.builds[S.builds.length-1]>10){S.builds.push(t);S.totBuilds++;S.stint.builds++;}S.xp.SUPPORT+=2;
+   /* six-role XP: the real XP number from the feed (money-only lines count a tenth of the $) */
+   let role=XPROLE[k];if(k==='assist')role=t-S.flyLast<120?'PILOT':'SUPPORT';
+   if(role)addXP(role,e.amount||Math.round(Math.abs(e.money||0)/10)||5);
+   if(k==='build'||k==='build_complete'){if(k==='build_complete'||!S.builds.length||t-S.builds[S.builds.length-1]>10){S.builds.push(t);S.totBuilds++;S.stint.builds++;}
      if(S.host==='builder')burst(1690,760,14,['#ffb000','#fff','#9fc3ff'],260,500,4,.8);}
    else if(k==='revive'||k==='revive_assist')doRevive(true);
+   else if(k==='kill_assist')S.ma++;
    else if(k==='revived_me')S.revivedAt=t;
-   else if(k==='supplies'){S.supply.push(t);S.stint.supply++;S.xp.DRIVER+=3;driveTick();}
-   else if(k==='zone'){S.zoneCash+=e.money||160;S.xp.ASSAULT+=1;}
+   else if(k==='supplies'){S.supply.push(t);S.stint.supply++;driveTick();}
+   else if(k==='zone'){S.zoneCash+=e.money||160;}
    else if(k==='tip'){
      /* "TIP - THEPLANT +$20": passengers tip the pilot (in). OCR sometimes drops the sign:
         then it's incoming if he flew or revived recently (that's what people tip for), else outgoing */

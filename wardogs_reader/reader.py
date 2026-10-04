@@ -44,7 +44,8 @@ XP_RULES = [
     ("PASSENGERSURVIVED", "passenger"),     # pilot: each passenger dropped off alive (+$500)
     ("TACTICALDEPLOYMENT", "deploy"),       # pilot: troops deployed from his heli
     ("HEALEDTEAMMATE", "heal"),
-    ("FOBSUPPLIED", "supplies"),
+    ("FOBSUPPLIED", "fob_supplied"),
+    ("KILLASSIST", "kill_assist"),
     ("WHEELSDESTROYED", "wheels"),
     ("BRIBE", "bribe"),
     ("VEHICLEREFUELLING", "refuel"),
