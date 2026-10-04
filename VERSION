@@ -1,2 +1,2 @@
-1.9.2
-Tip Jar only shows up when you get tipped: it pops in, does the coin animation, and fades away 20 s after the last tip. The total keeps adding up all stream.
+1.9.3
+Real money only: no demo amounts on kills/revives, bottom bar shows what you've earned this stream, the debt banner shows your actual debt, builder wage clock and medic co-pay use your real earnings, death screen shows what you earned that life.
