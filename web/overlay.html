@@ -305,6 +305,12 @@ header.top p{margin:0;color:var(--muted);max-width:74ch;line-height:1.45}
 .stage[data-show="combat"] .mp-combat,.stage[data-show="pilot"] .mp-pilot,.stage[data-show="builder"] .mp-builder,.stage[data-show="driver"] .mp-driver,.stage[data-show="medic"] .mp-medic{display:flex}
 .stage[data-mode="dead"] .rcol,.stage[data-mode="deploy"] .rcol,.stage[data-mode="shop"] .rcol,.stage[data-mode="dead"] .streak{display:none}
 /* pilot panel */
+/* pilot channel (benged's call): no compass, no callsign card; XP card + incident sign sit at the bottom right */
+.fr-pilot .hdg,.fr-pilot .hdgv{display:none}
+.mp-pilot .card{display:none}
+.core,.rcol{transition:top .5s ease}
+.stage[data-mode="pilot"] .core{top:648px}
+.stage[data-mode="pilot"] .rcol{top:873px;height:125px}
 .sign{background:#f4efe2;color:#1b1b1b;border:5px solid #1b1b1b;outline:3px solid #f4efe2;padding:8px 12px;text-align:center}
 .sign small{display:block;font:700 12px var(--f-ui);letter-spacing:.12em}
 .sign .d{font:400 50px/1 var(--f-lcd);color:#b30000}
@@ -490,6 +496,8 @@ body.live .scene,body.live .ghud{display:none!important}
 /* his real webcam sits under this frame in OBS: x 24, y 22, 360 x 203 on a 1920 x 1080 canvas */
 body.live .cam{background:transparent!important;filter:none!important}
 body.live .cam::after{display:none}
+/* the mockup's design notes ("copied from game compass" etc.) are not for viewers */
+body.live .srcl{display:none}
 .livebadge{position:absolute;right:8px;top:8px;font:700 12px var(--f-ui);background:#c00;color:#fff;padding:2px 6px;display:none;z-index:9}
 body.live.offline .livebadge{display:block}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
