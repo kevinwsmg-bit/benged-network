@@ -20,6 +20,8 @@ REGIONS = {
     "hints": (0.78, 0.38, 1.0, 0.78),
     # bottom-right: equipped item name ("LARGE HAMMER // BUILD SUPPLIES" = building)
     "weapon": (0.78, 0.80, 1.0, 0.89),
+    # vendor screens: the green Purchase button at the bottom right shows the cart total ("$350")
+    "cart": (0.84, 0.87, 1.0, 0.985),
     # bottom strip: GIVE UP / CALL FOR HELP (downed), map controls (dead / redeploy)
     "bottom": (0.08, 0.88, 0.92, 1.0),
     # right-bottom: VIEW DAMAGE LOG + who hit him

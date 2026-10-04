@@ -684,8 +684,8 @@ body.live.offline .livebadge{display:block}
         <div class="abs shopbar" id="shopbar">
           <div class="sb-logo"><b>BENGED<br>SHOPPING NETWORK</b><small>CH 09 · LIVE IN STORE</small></div>
           <div class="sb-time"><small>TIME IN THE STORE</small><div class="clk" id="sbClk">0:00</div><div class="cap" id="sbCap">JUST BROWSING</div></div>
-          <div class="sb-cart" id="sbCart"><small>THE PRICE IS WRONG · HOW MUCH WILL BENGED BLOW?</small>
-            <div class="row"><span class="spent" id="sbSpent">$0</span><span class="avg" id="sbAvg">first trip of the night</span><span class="over">OVER BUDGET</span></div>
+          <div class="sb-cart" id="sbCart"><small>IN THE CART · HOW MUCH WILL BENGED BLOW?</small>
+            <div class="row"><span class="spent" id="sbSpent">$0</span><span class="avg" id="sbAvg">spent $0 · first trip of the night</span><span class="over">OVER BUDGET</span></div>
             <div class="sold" id="sold">SOLD!</div></div>
           <div class="sb-stats"><span>Longest trip tonight <b id="sbLong">0:00</b></span><span>Shopping tonight <b id="sbTot">0:00</b> · <b id="sbPct">0%</b> of stream</span></div>
         </div>
@@ -873,7 +873,7 @@ function loop(now){
  if(a==='flying')S.flightClean+=rdt*T;
  if(a==='building')S.buildTime+=rdt*T;
  if(a==='sniping'&&!LIVE)S.xp.RECON+=rdt*.5;
- if(a==='shopping'&&typeof LIVE==='undefined'){acc.buy=(acc.buy||0)+rdt;if(acc.buy>2.4){acc.buy=0;if(Math.random()<.55){const p=pick([150,300,450,1500,2200]);cashAdd(-p);shopBuy(p);}}}
+ if(a==='shopping'&&typeof LIVE==='undefined'){acc.buy=(acc.buy||0)+rdt;if(acc.buy>2.4){acc.buy=0;if(SHOP.trip&&Math.random()<.5)SHOP.trip.cart=pick([0,350,1200,2650,4200]);else if(Math.random()<.55){const p=pick([150,300,450,1500,2200]);cashAdd(-p);shopBuy(p);}}}
  // screen modes
  if(a==='shopping')S.inter='shop';else if(S.inter==='shop')S.inter=null;
  if(S.inter==='dead'&&t>S.deadUntil){S.inter='deploy';S.deployUntil=t+70;renderEpisode();log('Loading screen → Episode Open');}
@@ -1094,7 +1094,7 @@ function ticker(){const items=[['TONIGHT',S.kills+' kills · '+S.crashes+' heli 
 const SHOP={trip:null,trips:[],t0:Date.now(),total:0};
 const SHOP_CAPS=[[15,'JUST BROWSING'],[30,'COMPARING PRICES'],[60,'ASKING FOR A MANAGER'],[90,'MALL WALKER'],[120,'SECURITY HAS BEEN CALLED'],[1e9,'HE LIVES HERE NOW']];
 function mmss(s){s=Math.floor(s);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');}
-function shopEnter(){SHOP.trip={t0:Date.now(),spent:0,w0:S.gotCash?S.wallet:null};SFX.jingle();}
+function shopEnter(){SHOP.trip={t0:Date.now(),spent:0,cart:0,w0:S.gotCash?S.wallet:null};SFX.jingle();}
 function shopLeave(){const tr=SHOP.trip;if(!tr)return;SHOP.trip=null;tr.dur=(Date.now()-tr.t0)/1000;
  /* the game closes the vendor the instant he buys, so the wallet drop shows up just after he leaves:
     wait up to 6 s for that money read (shopSettle), then print the receipt */
@@ -1109,10 +1109,10 @@ function shopBuy(amount){if(!SHOP.trip||amount<=0)return;SHOP.trip.spent+=amount
  const s=$('sold');s.textContent='SOLD! −'+money(amount);s.classList.remove('go');void s.offsetWidth;s.classList.add('go');SFX.kaching();}
 function shopRender(){const tr=SHOP.trip;if(!tr)return;const now=Date.now(),dur=(now-tr.t0)/1000;
  $('sbClk').textContent=mmss(dur);$('sbCap').textContent=SHOP_CAPS.find(c=>dur<c[0])[1];
- $('sbSpent').textContent=money(tr.spent);
+ $('sbSpent').textContent=money(tr.cart);   /* live cart total from the Purchase button */
  const paid=SHOP.trips.filter(x=>x.spent>0),avg=paid.length?paid.reduce((a,x)=>a+x.spent,0)/paid.length:0;
- $('sbAvg').textContent=avg?'avg trip '+money(Math.round(avg)):'first trip of the night';
- $('sbCart').classList.toggle('over',avg>0&&tr.spent>avg);
+ $('sbAvg').textContent='spent '+money(tr.spent)+' · '+(avg?'avg trip '+money(Math.round(avg)):'first trip of the night');
+ $('sbCart').classList.toggle('over',avg>0&&tr.spent+tr.cart>avg);
  const longest=Math.max(dur,...SHOP.trips.map(x=>x.dur),0),tot=SHOP.total+dur;
  $('sbLong').textContent=mmss(longest);$('sbTot').textContent=mmss(tot);$('sbPct').textContent=Math.round(100*tot/Math.max(1,(now-SHOP.t0)/1000))+'%';}
 function stackRight(){   /* XP card sits 8 px above whatever channel panel is showing (bottom-right stack) */
@@ -1266,6 +1266,7 @@ S.startWallet=S.wallet;S.low=0;S.revivedAt=-999;
    else if(k==='bribe')toast('BRIBE · '+money(Math.abs(e.money||0)));
   },
   speed(e){if(e.spd!=null)S.spd=e.spd;},
+  cart(e){if(SHOP.trip)SHOP.trip.cart=e.amount||0;},   /* vendor Purchase button total */
   /* six-role XP: every XP entry in the bottom-centre reward list, added up. Unknown entries
      (e.g. kill XP lines) go to the role of the channel he's on. */
   xpgain(e){const k=e.kind,t=S.gt;let role=XPROLE[k];

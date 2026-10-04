@@ -238,6 +238,7 @@ class Reader:
                     self._pilot_last = self._vehicle_last = -999
         if self.state["screen"] == "vendor" and self._due("vcash", 0.5):
             self._read_cash(frame, ev, need=2)          # purchases = wallet going down in the store
+            self._read_cart(frame, ev)
         if in_game:
             if self._due("cash", 1.0):
                 self._read_cash(frame, ev)
@@ -340,6 +341,20 @@ class Reader:
             b, g, r = (seg[:, :, i].astype(int) for i in range(3))
             neg = int(((r > 150) & (g < 90) & (b < 90)).sum()) > 12
         return (-match if neg else match), wallet
+
+    def _read_cart(self, frame, ev):
+        """Vendor cart total from the green Purchase button ("$350"); two matching reads."""
+        amt = 0
+        for _, t, c in read_boxes(crop(frame, "cart")):
+            u = t.upper().replace(" ", "").translate(str.maketrans("OQDIL|", "000111"))
+            m = self._MONEY_BOX.match(u)
+            if m and c > 0.6:
+                amt = int(re.sub(r"[.,]", "", m.group(2)))
+                break
+        if amt == getattr(self, "_cart_cand", None) and amt != getattr(self, "_cart", None):
+            self._cart = amt
+            ev.append(dict(type="cart", amount=amt))
+        self._cart_cand = amt
 
     def _read_cash(self, frame, ev, need=3):
         """Match money + wallet. In game: 3 of the last 5 reads must agree. At a vendor (need=2) it
