@@ -284,7 +284,9 @@ header.top p{margin:0;color:var(--muted);max-width:74ch;line-height:1.45}
 .lv{display:grid;grid-template-columns:1fr auto;gap:2px 8px;font:600 15px/1.35 var(--f-ui)}
 .lv span:nth-child(even){font-variant-numeric:tabular-nums;color:var(--ch)}
 .lv .hot{color:#fff;text-shadow:0 0 8px var(--ch)}
-.core .tele{display:none}  /* $BNGD chart: off for now, benged wants less clutter */
+/* $BNGD money chart: off (benged wants less clutter); on Benged Air the same panel is the FDR
+   flight data chart (speed + altitude), which he loves, so it shows there */
+.stage:not([data-mode="pilot"]) .core .tele{display:none}
 .tele{position:relative;background:#030a03;padding:8px 12px 10px;font-family:var(--f-lcd);color:var(--ch);clip-path:polygon(0 0,calc(100% - 18px) 0,100% 18px,100% 100%,18px 100%,0 calc(100% - 18px));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ch) 50%,transparent),inset 0 0 30px color-mix(in srgb,var(--ch) 15%,transparent)}
 .tele .hd{display:flex;justify-content:space-between;font-size:24px;letter-spacing:.04em}
 .tele .hd .up{color:#7cff6b}.tele .hd .dn{color:#ff5a4f}
@@ -895,7 +897,7 @@ function loop(now){
   const rem={pilot:S.flyStart!=null?Math.ceil(NEED.pilot-(S.flyLast-S.flyStart)):null,driver:S.driveStart!=null?Math.ceil(NEED.driver-(S.driveLast-S.driveStart)):null};
   $('chargeTxt').innerHTML=CH[arm].role+' MODE '+(rem[arm]!=null?'IN '+Math.max(0,rem[arm])+'s':'ARMING')+'<small>'+CH[arm].num+' · '+CH[arm].name+'</small>';}
  else ch.classList.remove('on');
- acc.sample+=rdt;if(acc.sample>.25){acc.sample=0;S.fdr.push([S.spd,S.agl]);if(S.fdr.length>150)S.fdr.shift();
+ acc.sample+=rdt;if(acc.sample>.25){acc.sample=0;if(!LIVE||S.act==='flying'){S.fdr.push([S.spd,S.agl]);if(S.fdr.length>150)S.fdr.shift();}
   S.money.push([S.wallet-S.startWallet,ROLES.reduce((s,k)=>s+S.xp[k],0)]);if(S.money.length>150)S.money.shift();}
  render(e);shopRender();stackRight();fxStep(rdt);
 }
@@ -1196,7 +1198,7 @@ $('demo').addEventListener('click',()=>{if(demoT.length){stopDemo();return;}
 
 /* ================= LIVE: events from the reader ================= */
 if(LIVE){
- S.sound=true;S.crashes=0;S.life=0;S.gotCash=false;S.buildCash=[];S.medCash=0;S.lifeW0=null;
+ S.sound=true;S.crashes=0;S.life=0;S.gotCash=false;S.spd=0;S.agl=0;S.buildCash=[];S.medCash=0;S.lifeW0=null;
  document.getElementById('jackL').innerHTML='EARNED<br>THIS STREAM';
  const XPROLE={build:'SUPPORT',build_complete:'SUPPORT',buildable_destroyed:'SUPPORT',fob_supplied:'SUPPORT',revive:'MEDIC',revive_assist:'MEDIC',heal:'MEDIC',supplies:'DRIVER',passenger:'PILOT',deploy:'PILOT',zone:'ASSAULT',zone_enter:'ASSAULT',wheels:'ASSAULT',kill_assist:'ASSAULT',spot:'RECON'};
 S.startWallet=S.wallet;S.low=0;S.revivedAt=-999;
