@@ -28,6 +28,8 @@ HOME = {
     "inventory": "top",
     "equipment_vendor": "top",
     "vendor": "top",
+    "rebuy": "rebuy",
+    "medkit": "medkit",
 }
 
 # The whole game UI changes size between benged's setups (his Twitch stream draws it at ~75%

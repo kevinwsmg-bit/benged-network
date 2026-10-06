@@ -62,7 +62,8 @@ button.go{background:var(--amber);color:#171100;border-color:var(--amber)}
         <div><span>Speed (heli · vehicle)</span><b id="heli">—</b></div>
       </div>
       <div class="row" style="margin-top:8px;align-items:center"><span class="hint" id="diag" style="flex:1">Game picture: …</span>
-        <button id="dbg" type="button">Save debug pictures</button></div>
+        <button id="dbg" type="button">Save debug pictures</button>
+        <button id="logs" type="button" title="One file per stream: send the newest one to Kevin after a test">Open stream logs</button></div>
       <p class="hint" id="scores" style="font-family:Consolas,monospace;font-size:12px;margin:4px 0 0"></p>
       <p class="hint">Yellow boxes are where the reader looks. If WARDOGS is a different resolution or HUD scale and the boxes miss the cash, kill feed or heli controls, tell Kevin and send a screenshot of this panel.</p>
     </div>
@@ -147,6 +148,7 @@ $('updBtn').onclick=async()=>{if(!confirm('Install the update now? The overlay r
   $('updBtn').disabled=true;$('updBtn').textContent='Updating…';$('updNotes').textContent='Downloading and restarting. This page comes back by itself in about 20 seconds (longer if new packages are needed).';
   await api('/api/update',{}).catch(()=>{});};
 setInterval(checkVersion,5000);checkVersion();
+$('logs').onclick=()=>api('/api/logs',{}).catch(()=>null);
 $('dbg').onclick=async()=>{$('dbg').textContent='Saving…';const r=await api('/api/debug',{}).catch(()=>null);
   $('dbg').textContent=r&&r.ok?'Saved · folder opened':'Save debug pictures';setTimeout(()=>$('dbg').textContent='Save debug pictures',6000);};
 const SC={spd_label:'heli SPD',alt_label:'heli ALT',vspd_label:'car SPD',collective_lift:'heli keys',change_seat:'seat keys',hammer:'hammer',equipment_vendor:'vendor',inventory:'menu',view_damage_log:'downed'};

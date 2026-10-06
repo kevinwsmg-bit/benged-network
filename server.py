@@ -149,6 +149,7 @@ class Capture(threading.Thread):
                 raw = self.grab()
                 frame = cv2.imdecode(np.frombuffer(raw, np.uint8), cv2.IMREAD_COLOR)
                 full = f"{frame.shape[1]}x{frame.shape[0]}"
+                big = frame                       # the reader gets this full size (it reads the small feed text from it)
                 if frame.shape[0] > 720:
                     # shrink here with pixel averaging to 720 tall (the game sizes its HUD by height).
                     # OBS's own scaler drops pixels at 2:1 (1440p -> 720p) and chops up thin HUD text
@@ -158,9 +159,10 @@ class Capture(threading.Thread):
                 self.last_jpg = raw
                 self.status["frame"] = f"{frame.shape[1]}x{frame.shape[0]}"
                 self.status["native"] = full if not self.replay else self.status.get("native")
-                for ev in self.reader.process(frame, time.time()):
+                for ev in self.reader.process(big, time.time()):
                     self.hub.send_threadsafe(ev)
                     self.clip_rule(ev)
+                    self.log_event(ev)
                 times = (times + [time.time() - t0])[-20:]
                 self.status.update(obs="replay" if self.replay else "connected", ms=int(1000 * sum(times) / len(times)),
                                    fps=round(1 / max(period, sum(times) / len(times)), 1),
@@ -198,6 +200,23 @@ class Capture(threading.Thread):
         """Full-resolution PNG of the game source, exactly as OBS has it (no scaling)."""
         r = self.obs().send("GetSourceScreenshot", {"sourceName": self.cfg["source"], "imageFormat": "png"}, raw=True)
         return base64.b64decode(r["imageData"].split(",", 1)[1])
+
+    def log_event(self, ev):
+        """Every event of the session (minus the speed readouts) in logs/: lets us check a stream later."""
+        if ev["type"] in ("pilot", "speed"):
+            return
+        try:
+            if not getattr(self, "_log", None):
+                os.makedirs(os.path.join(HERE, "logs"), exist_ok=True)
+                old = sorted(glob.glob(os.path.join(HERE, "logs", "events-*.jsonl")))
+                for f in old[:-19]:                # keep the last 20 sessions
+                    os.remove(f)
+                self._log = open(os.path.join(HERE, "logs", time.strftime("events-%Y%m%d-%H%M%S.jsonl")),
+                                 "a", encoding="utf-8")
+            self._log.write(json.dumps(dict(ev, clock=time.strftime("%H:%M:%S")), ensure_ascii=False) + "\n")
+            self._log.flush()
+        except Exception:
+            pass
 
     def clip_rule(self, ev):
         """Save the OBS replay buffer ~8 s after a big moment (the reaction is the content)."""
@@ -312,6 +331,14 @@ def make_app(cfg, replay=None):
         hub.log = []
         return web.json_response(dict(ok=True))
 
+    async def open_logs(_):
+        """Open the folder with this PC's session logs (one file per START.bat run) to send to Kevin."""
+        folder = os.path.join(HERE, "logs")
+        os.makedirs(folder, exist_ok=True)
+        if sys.platform == "win32":
+            os.startfile(folder)
+        return web.json_response(dict(ok=True, folder=folder))
+
     async def debug(_):
         """Save what the reader sees right now so benged can send it to Kevin, then open the folder."""
         folder = os.path.join(HERE, "debug", time.strftime("%Y%m%d-%H%M%S"))
@@ -361,6 +388,7 @@ def make_app(cfg, replay=None):
     app.router.add_post("/api/test", test_event)
     app.router.add_post("/api/reset", reset)
     app.router.add_post("/api/debug", debug)
+    app.router.add_post("/api/logs", open_logs)
     app.router.add_get("/api/version", version)
     app.router.add_post("/api/update", update)
     app.router.add_get("/api/snapshot.jpg", snapshot)

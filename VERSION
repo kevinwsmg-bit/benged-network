@@ -1,2 +1,2 @@
-1.9.7
-Benged Air: the FDR flight data chart (live speed + altitude) is back, stacked in the bottom right. Other channels stay clean.
+2.0.0
+Big update from benged's first trial stream: XP now tracks every reward line (building, recon, medic, pilot), kills register faster and count doubles, no more random level-ups or killstreaks, death screen 15 s, Shotgun shows your passenger seat, pilot supply deliveries, real cause-of-death pie, and a stream log to send Kevin.

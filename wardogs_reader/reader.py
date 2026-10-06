@@ -32,6 +32,7 @@ import numpy as np
 from .regions import crop
 from .ocr import read_line, read_lines, read_boxes, norm, stroke_mask, CachedLines
 from .templates import Templates
+from .feed import Feed
 
 IGNORE = ("ROTARYVEHICLE", "OCCUPIEDSEATS", "LAKOTA", "UNLOCKED", "STORAGE", "BACKPACK", "SQUAD", "VEHICLEINVENTORY")
 XP_RULES = [
@@ -48,6 +49,7 @@ XP_RULES = [
     ("KILLASSIST", "kill_assist"),
     ("WHEELSDESTROYED", "wheels"),
     ("BRIBE", "bribe"),
+    ("AIRTIMEBONUS", "airtime"),            # vehicle jump
     ("VEHICLEREFUELLING", "refuel"),
     ("VEHICLEREPAIRING", "repair"),
     ("WAITEDTOBEREVIVED", "revived_me"),
@@ -57,6 +59,10 @@ XP_RULES = [
     ("REVIVEDTEAMMATE", "revive"),
     ("REVIVEDPLAYER", "revive_assist"),
     ("PLAYERASSIST", "assist"),
+    ("HEADSHOTKILL", "headshot"),            # kill bonus lines (the kill itself is the popup)
+    ("SHUTDOWNKILL", "shutdown"),           # killed someone on a streak
+    ("SPOTTEDTARGETDESTROYED", "spot_destroy"),   # recon: a target he spotted got killed
+    ("SPOTTEDVEHICLEDESTROYED", "spot_destroy"),
     ("TARGETSPOTTED", "spot"),
     ("TIP", "tip"),
     ("LEVEL", "level"),
@@ -89,6 +95,11 @@ def _fix_xp_text(raw):
 
 def classify(k):
     """Map a normalised feed line to an event kind, tolerating a few misread letters."""
+    if "TEAMKILL" in k:                      # "TEAM KILL ASSIST -$909": a penalty, not an assist
+        return "teamkill"
+    # "KILL +$1,500" -> "KILL 250XP"; OCR adds letters around it ("KILSI", "YAJKILLSI")
+    if re.search(r"KIL[A-Z]{0,3}$", k) and len(k) <= 10 and not any(x in k for x in ("ASSIST", "HEADSHOT", "SHUTDOWN")):
+        return "kill"
     for p, v in XP_RULES:
         if p in k:
             return v
@@ -145,27 +156,28 @@ class LineTracker:
 
 
 class Reader:
-    def __init__(self, names=("Benged",), mask=()):
+    def __init__(self, names=("Benged",), mask=(), feed_sx=None):
         self.names = [norm(n) for n in names if n]
+        self.feed_sx = feed_sx                # sideways stretch of the picture (None: learn it)
         self.mask = mask                      # [(x0,y0,x1,y1) fractions] blanked before reading (VOD tests: webcam)
         self.tpl = Templates()
         self.t = 0.0
         self.next = {}
-        self.xp_lines = CachedLines(max_w=440)
+        self.feed = Feed(classify)
+        self.feed.sx = feed_sx or 1.0
         self.cf_lines = CachedLines(max_w=330, max_new=5)
         self._cf, self._cf_raw, self._cf_seen = [], None, -999
         self._cf_total, self._cf_tcand, self._cf_kind = 0, None, None
         self.kf_lines = CachedLines(max_w=470, max_new=3)
-        self.xp = LineTracker()
-        self.kf = LineTracker(hold=7.0)
-        self.state = dict(pilot=False, vehicle=False, hammer=False, scoped=False, hurt=False, screen="none")
-        self._pilot_last = self._vehicle_last = self._hammer_last = -999
+        self._kf_seen = []                    # kill-feed lines with his name now on screen
+        self.state = dict(pilot=False, vehicle=False, hammer=False, medkit=False, scoped=False, hurt=False, screen="none")
+        self._pilot_last = self._vehicle_last = self._hammer_last = self._medkit_last = -999
         self._cash = self._cash_cand = None
         self._cash_miss = 0
-        self._popup_last = -999
+        self._pop, self._pop_seen = None, -999   # the kill popup on screen now
         self._down_since = None
         self._screen_votes = []
-        self._pending_kill = None
+        self._kills, self._kills_ready = [], []   # recent kills (to merge popup + feed), events to send
         self._hurt_frames = 0
         self._gauges = None                   # (SPD label, ALT label) matches while the heli gauges are on screen
         self._vgauge = None                   # ground-vehicle SPD box match
@@ -199,6 +211,7 @@ class Reader:
     def process(self, frame, t):
         self.t = t
         ev = []
+        self._full = frame                    # full size: the reward feed is read from this
         if frame.shape[0] != 720:
             # the game sizes its HUD by screen height: scaling every picture to 720 tall keeps the HUD
             # the same size whatever the shape (16:9 -> 1280x720, 16:10 1440x900 -> 1152x720)
@@ -228,8 +241,17 @@ class Reader:
                 self._vehicle_last = t
             elif self.tpl.seen(gray, "hammer", thresh=0.75):    # building tool in hand
                 self._hammer_last = t
+            elif self.tpl.seen(gray, "medkit", thresh=0.78):    # medkit in hand (REVIVE FRIENDLY / HEAL SELF)
+                self._medkit_last = t
             # out of the vehicle: no gauges and no control list for 3 checks in a row (1.5 s), in game
             # (the list is on screen in every seat, and never on foot) -> drop pilot/vehicle now
+            # which detectors fired (sent when it changes; only for the session log, to check streams later)
+            sig = "".join(c for c, on in (("G", self._gauges), ("V", self._vgauge), ("H", heli_keys),
+                                          ("S", seat_keys), ("B", t - self._hammer_last < 0.1),
+                                          ("R", t - self._medkit_last < 0.1)) if on)
+            if sig != getattr(self, "_sig", None):
+                self._sig = sig
+                ev.append(dict(type="sig", s=sig or "-"))
             if self._gauges or self._vgauge or heli_keys or seat_keys or self.state["screen"] != "none":
                 self._out = 0
             else:
@@ -244,9 +266,11 @@ class Reader:
                 self._read_cash(frame, ev)
             if self._due("xp", 0.5):
                 self._read_xp(frame, ev)
-            self._read_centerfeed(frame, ev)
+            # (the bottom reward list isn't read any more: the top-right feed carries the same rewards)
             if self._due("popup", 0.25):
                 self._read_popup(frame, ev)
+            if (self.state["vehicle"] or self.state["pilot"]) and self._due("seats", 2.0):
+                self._read_seats(frame, ev)
             if self._gauges and self._due("gauges", 1.0):
                 self._read_gauges(frame, ev)
             elif self._vgauge and self._due("gauges", 1.0):
@@ -261,6 +285,8 @@ class Reader:
         self.state["pilot"] = t - self._pilot_last < 4.0
         self.state["vehicle"] = (not self.state["pilot"]) and t - self._vehicle_last < 4.0
         self.state["hammer"] = not (self.state["pilot"] or self.state["vehicle"]) and t - self._hammer_last < 4.0
+        self.state["medkit"] = (not (self.state["pilot"] or self.state["vehicle"] or self.state["hammer"])
+                                and t - self._medkit_last < 3.0)
         self._flush_kill(ev)
         if self.state != prev_state:
             ev.append(dict(type="state", **self.state))
@@ -271,7 +297,7 @@ class Reader:
     # ---------------------------------------------------------------- screens
     def _read_screens(self, frame, gray, ev):
         screen = "none"
-        if self.tpl.seen(gray, "vendor", "equipment_vendor", thresh=0.82):
+        if self.tpl.seen(gray, "vendor", "equipment_vendor", "rebuy", thresh=0.82):
             screen = "vendor"                      # EQUIPMENT / VEHICLE / GARAGE VENDOR
         elif self.tpl.seen(gray, "inventory", thresh=0.82):
             screen = "menu"                        # INVENTORY / SCOREBOARD / PROGRESSION tabs
@@ -451,51 +477,124 @@ class Reader:
 
 
     def _read_xp(self, frame, ev):
-        lines = self.xp_lines.read(crop(frame, "xpfeed"))
-        keys = [norm(x[0]) for x in lines if x[1] > 0.6 and len(norm(x[0])) >= 4]
-        for k in self.xp.update(keys, self.t):
-            if any(i in k for i in IGNORE):
+        """Top-right reward feed: one event for each line's money and one for its XP (see feed.py)."""
+        if self.feed_sx is None and self.tpl.stretch:
+            self.feed.sx = self.tpl.stretch
+        for kind, unit, amt, words, line in self.feed.update(self.feed.read(self._full), self.t):
+            text = f"{words} {amt}XP" if unit == "xp" else f"{words} ${amt}"
+            if any(i in words for i in IGNORE):
                 continue
-            raw = next((x[0] for x in lines if norm(x[0]) == k), k)
-            raw = _fix_xp_text(_fix_money_text(raw))
-            kind = classify(k)
             if kind is None:
-                ev.append(dict(type="line", region="xpfeed", text=raw))
+                ev.append(dict(type="line", region="xpfeed", text=text))
                 continue
-            xp = XP_RE.search(raw)
-            money = MONEY_RE.search(raw) if not xp else None
-            ev.append(dict(type="xp", kind=kind, amount=int(xp.group(1)) if xp else 0,
-                           money=_money(*money.groups()) if money else 0, text=raw))
+            ev.append(dict(type="xp", kind=kind, amount=amt if unit == "xp" else 0,
+                           money=amt if unit == "$" else 0, text=text, line=line))
+
+    _POP_TOTAL = re.compile(r"^\W*\+?\W*[$S]\s*([0-9OoIlZB][0-9OoIlZB.,]{2,8})\W*$")
 
     def _read_popup(self, frame, ev):
+        """Kill popup under the crosshair: a boxed running total ('+$4,000') over 'KILL CONFIRMED +$4,000',
+        whose money turns into its XP after ~2 s. It stays ~5 s; a second kill in that time raises the
+        total. One kill per new popup, plus one per rise of the total. (The kill's XP comes from the
+        top-right feed's "KILL 250XP" line.)"""
         img = crop(frame, "popup")
-        # cheap gate: the popup is a short block of bright strokes; skip OCR otherwise
-        if int(stroke_mask(img).sum()) < 120 or self.t - self._popup_last < 2.0:
+        if int(stroke_mask(img).sum()) < 120:
+            self._pop_gone()
             return
-        txt = " ".join(norm(x[0]) for x in read_lines(img))
-        # a kill says CONFIRMED (+$2,000); passengers dropped off show +$2,500 here too, not a kill
-        if "CONFIRM" in txt or ("2000" in txt and "PASS" not in txt):
-            self._popup_last = self.t
+        lines = read_lines(img)
+        txt = " ".join(norm(x[0]) for x in lines)
+        # ("TONIGHT": our own overlay's kill card, only ever seen when testing on stream video)
+        # a kill always says KILL CONFIRMED (a bare "$2,000" can be a price on the FOB supplies menu)
+        if "CONFIRM" not in txt or "TONIGHT" in txt:
+            self._pop_gone()
+            return
+        self._pop_seen = self.t
+        total = None
+        for t, c, _ in lines:
+            m = self._POP_TOTAL.match(t.upper().replace(" ", ""))
+            if m and c > 0.6:
+                v = re.sub(r"[.,]", "", m.group(1)).translate(self._LOOK)
+                total = int(v) if v.isdigit() else None
+                break
+        if self._pop is None:                       # a new popup: a kill
+            self._pop = dict(total=None, cand=None, kills=1)
+            self._kill_signal("popup", None, "")
+        if total is None:
+            return
+        if total != self._pop["cand"]:              # every total must read the same twice
+            self._pop["cand"] = total
+            return
+        if self._pop["total"] is None:
+            self._pop["total"] = total
+        elif total - self._pop["total"] >= 1400:    # it went up by another kill's worth ($1,500+)
+            self._pop.update(total=total, kills=self._pop["kills"] + 1)
             self._kill_signal("popup", None, "")
 
+    def _pop_gone(self):
+        if self._pop is not None and self.t - self._pop_seen > 2.5:     # it fades / misreads for a moment
+            self._pop = None
+
     def _read_killfeed(self, frame, ev):
+        """Lobby kill feed lines with his name ("[KA]Benged [5m] victim" / "killer [11m] [KA]Benged").
+        OCR reads the same line a little differently every time ("BananaBass", "BennaBass"), so a line
+        counts the first time it reads cleanly (fast) and then is remembered by the other name, loosely,
+        for as long as it stays on screen."""
         lines = self.kf_lines.read(crop(frame, "killfeed"))
-        keys = [norm(x[0]) for x in lines if x[1] > 0.5]
-        for k in self.kf.update(keys, self.t):
+        for raw, conf, _ in lines:
+            if conf < 0.65:
+                continue
+            k = norm(raw)
             if not self._is_me(k):
                 continue
-            raw = next((x[0] for x in lines if norm(x[0]) == k), k)
             d = DIST_RE.search(raw)
-            dist = int(d.group(1)) if d else None
-            left, right = (raw[:d.start()], raw[d.end():]) if d else (raw[:len(raw) // 2], raw[len(raw) // 2:])
+            if not d:
+                continue
+            dist = int(d.group(1))
+            left, right = raw[:d.start()], raw[d.end():]
             me_l, me_r = self._is_me(norm(left)), self._is_me(norm(right))
-            if me_l and me_r:
+            other = norm(right if me_l else left)
+            side = "self" if me_l and me_r else "kill" if me_l else "death"
+            seen = None
+            for r in self._kf_seen:
+                if r["side"] == side and (r["other"] == other or difflib.SequenceMatcher(None, r["other"], other).ratio() >= 0.6):
+                    seen = r
+                    break
+            if seen:
+                seen["t"] = self.t
+                continue
+            self._kf_seen.append(dict(side=side, other=other, t=self.t))
+            if side == "self":
                 self._selfkill(ev, pilot=self.t - self._pilot_last < 12, via="killfeed", text=raw)
-            elif me_l:
+            elif side == "kill":
                 self._kill_signal("feed", dist, right.strip(" []|"))
             else:
-                # his own death line: "[2EZ]brave88 [11m] [KA]Benged"
                 ev.append(dict(type="killed_by", killer=left.strip(" []|"), dist=dist, text=raw))
+        self._kf_seen = [r for r in self._kf_seen if self.t - r["t"] < 4.0]
+
+    def _read_seats(self, frame, ev):
+        """Who's in the vehicle: the list under "UNLOCKED [L]" in the control hints, in seat order
+        ("[KA] Benged", "iamahumam", "TTV_QuantumLag", then the vehicle name "MH-6"). Shotgun = the
+        name right after his. Sent when two reads agree."""
+        lines = read_lines(crop(frame, "hints"))
+        names, after = [], False
+        for raw, conf, _ in lines:
+            n = norm(raw)
+            if n.endswith("LOCKED") or n.endswith("LOCKEDL"):
+                after = True
+                continue
+            if after and conf > 0.6 and len(n) >= 3:
+                names.append(raw.strip(" @©®○●"))
+        if len(names) >= 2 and re.fullmatch(r"[A-Z0-9\- ]{2,10}", names[-1]):
+            names = names[:-1]                    # the vehicle name ("MH-6", "M1151")
+        me = next((i for i, x in enumerate(names) if self._is_me(norm(x))), None)
+        if me is None:
+            return
+        shot = names[me + 1] if me + 1 < len(names) else ""
+        shot = re.sub(r"^[^A-Za-z0-9\[]+", "", shot)
+        if shot == getattr(self, "_shot_cand", None) and shot != getattr(self, "_shot", None):
+            self._shot = shot
+            ev.append(dict(type="seats", shotgun=shot, names=names))
+        self._shot_cand = shot
 
     # heli: ALT box sits this far right of the SPD box (template pixels, per look variant)
     ALT_DX = {0: 235, 1: 177, 2: 176}          # 2 = benged's fullscreen 1440x900 HUD
@@ -577,20 +676,25 @@ class Reader:
         ev.append(dict(type="pilot", spd=spd, agl=agl, hdg=int(m.group(1)) % 360 if m else None, raw=[s, a]))
 
     # ------------------------------------------- kill fusion (popup + feed line)
+    # A kill shows as the popup under the crosshair AND a kill-feed line, up to a few seconds apart.
+    # The first one to show is sent at once (fast); the other one, when it comes, only adds what
+    # the first lacked (distance, victim) as a kill_info event instead of counting a second kill.
     def _kill_signal(self, via, dist, victim):
-        p = self._pending_kill
-        if p and self.t - p["t0"] < 3.0 and via not in p["via"]:
-            p["via"].append(via)
-            p["dist"] = p["dist"] or dist
-            p["victim"] = p["victim"] or victim
-        else:
-            self._pending_kill = dict(t0=self.t, via=[via], dist=dist, victim=victim)
+        for k in self._kills:
+            if via not in k["via"] and self.t - k["t0"] < 8.0:
+                k["via"].append(via)
+                if (dist and not k["dist"]) or (victim and not k["victim"]):
+                    k["dist"], k["victim"] = k["dist"] or dist, k["victim"] or victim
+                    self._kills_ready.append(dict(type="kill_info", id=k["id"], dist=k["dist"], victim=k["victim"]))
+                return
+        self._kill_n = getattr(self, "_kill_n", 0) + 1
+        k = dict(id=self._kill_n, t0=self.t, via=[via], dist=dist, victim=victim)
+        self._kills = [x for x in self._kills if self.t - x["t0"] < 8.0] + [k]
+        self._kills_ready.append(dict(type="kill", id=k["id"], dist=dist, victim=victim, via=via))
 
     def _flush_kill(self, ev):
-        p = self._pending_kill
-        if p and (len(p["via"]) == 2 or self.t - p["t0"] >= 1.25):
-            ev.append(dict(type="kill", dist=p["dist"], victim=p["victim"], via="+".join(p["via"])))
-            self._pending_kill = None
+        ev.extend(self._kills_ready)
+        self._kills_ready = []
 
     # ------------------------------------------------------- pixel metrics
     @staticmethod
