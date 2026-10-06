@@ -30,6 +30,8 @@ sys.path.insert(0, HERE)
 from wardogs_reader.reader import Reader          # noqa: E402
 from wardogs_reader.regions import REGIONS        # noqa: E402
 from wardogs_reader.ocr import norm               # noqa: E402
+from rl.stats import Translator                   # noqa: E402
+from rl import setup as rl_setup                  # noqa: E402
 import updater                                    # noqa: E402
 
 CONFIG_PATH = os.path.join(HERE, "config.json")
@@ -42,6 +44,8 @@ DEFAULTS = {
     "fps": 2,
     "port": 8765,
     "replay_buffer": False,    # save OBS replay buffer on big moments (crash, long shot, 3+ streak)
+    "game": "wardogs",         # wardogs (reads the screen) | rocketleague (the game's own Stats API)
+    "rl_port": 49124,          # Rocket League Stats API WebSocket port (WebPort in TAStatsAPI.ini)
 }
 
 
@@ -156,6 +160,10 @@ class Capture(threading.Thread):
             period = 1.0 / max(1, float(self.cfg["fps"]))
             t0 = time.time()
             try:
+                if self.cfg.get("game", "wardogs") != "wardogs" and not self.replay:
+                    self.status["error"] = ""
+                    time.sleep(0.5)            # Rocket League talks to us directly: no screenshots needed
+                    continue
                 if self.status["paused"] or not (self.cfg["source"] or self.replay):
                     if self.status["obs"] != "error":     # keep a connection error visible until it's fixed
                         self.status["error"] = "" if self.cfg["source"] else "Step 2: pick the source that shows WARDOGS and press Save."
@@ -258,6 +266,7 @@ class Capture(threading.Thread):
 def make_app(cfg, replay=None):
     hub = Hub()
     cap = Capture(hub, cfg, replay=replay)
+    rl = dict(tr=Translator(cfg["names"]), connected=False, last=None, error="", events=0)
     app = web.Application()
 
     async def page(name):
@@ -268,7 +277,118 @@ def make_app(cfg, replay=None):
         return await page("control.html")
 
     async def overlay(_):
-        return await page("overlay.html")
+        # one OBS URL for every game: the page matches the game picked in the control panel
+        return await page("rl.html" if cfg.get("game") == "rocketleague" else "overlay.html")
+
+    async def rl_send(evs):
+        for e in evs:
+            await hub.send(e)
+            cap.log_event(e)
+            rl["events"] += 1
+
+    async def rl_client():
+        """Rocket League's Stats API: connect while Rocket League is the picked game, retry quietly."""
+        import aiohttp
+        while True:
+            if cfg.get("game") != "rocketleague":
+                rl["connected"] = False
+                await asyncio.sleep(1)
+                continue
+            try:
+                async with aiohttp.ClientSession() as s:
+                    async with s.ws_connect(f"ws://127.0.0.1:{int(cfg.get('rl_port', 49124))}", heartbeat=None) as ws:
+                        rl.update(connected=True, error="")
+                        async for m in ws:
+                            if m.type == WSMsgType.TEXT:
+                                rl["last"] = time.time()
+                                await rl_send(rl["tr"].feed(m.data))
+                            elif m.type in (WSMsgType.CLOSED, WSMsgType.ERROR):
+                                break
+                            if cfg.get("game") != "rocketleague":
+                                break
+            except Exception:
+                rl["error"] = "Waiting for Rocket League (start a match; stats must be switched on once)."
+            rl["connected"] = False
+            await asyncio.sleep(3)
+
+    async def rl_setup_api(_):
+        """Switch on Rocket League's Stats API in every install we can find."""
+        installs = await asyncio.to_thread(rl_setup.find_installs)
+        if not installs:
+            return web.json_response(dict(ok=False, error="Couldn't find Rocket League on this PC. Tell Kevin where it's installed."))
+        results = []
+        for i in installs:
+            try:
+                st = await asyncio.to_thread(rl_setup.enable, i)
+                results.append(dict(install=i, ok=True, **st))
+            except PermissionError:
+                results.append(dict(install=i, ok=False, path=rl_setup.ini_path(i),
+                                    error="Windows blocked the change. Close START.bat, right-click it, Run as administrator, and press the button again."))
+        return web.json_response(dict(ok=any(r["ok"] for r in results), results=results))
+
+    async def rl_sim(request):
+        """Fake Rocket League moments for testing the overlay without a match."""
+        kind = (await request.json()).get("kind", "")
+        me = (cfg["names"] or ["Benged"])[0]
+        tr = rl["tr"]
+        mine = 0
+
+        def upd(blue, orange, clock=180, ot=False):
+            return {"Event": "UpdateState", "Data": {"MatchGuid": "SIM", "Players": [
+                {"Name": me, "TeamNum": mine, "Goals": 1, "Saves": 2, "Shots": 3, "Score": 300, "Demos": 1},
+                {"Name": "TheMailMan", "TeamNum": mine}, {"Name": "Orange #1", "TeamNum": 1}, {"Name": "Orange #2", "TeamNum": 1}],
+                "Game": {"Teams": [{"TeamNum": 0, "Score": blue}, {"TeamNum": 1, "Score": orange}], "TimeSeconds": clock, "bOvertime": ot}}}
+
+        def P(n, t):
+            return {"Name": n, "TeamNum": t}
+
+        def goal(team, scorer, last, speed, assister=None):
+            d = {"GoalSpeed": speed, "Scorer": P(scorer, team), "BallLastTouch": {"Player": P(last[0], last[1])}}
+            if assister:
+                d["Assister"] = P(assister, team)
+            return [(0, {"Event": "GoalScored", "Data": d}), (1.2, {"Event": "GoalReplayStart", "Data": {}}),
+                    (6.5, {"Event": "GoalReplayWillEnd", "Data": {}}), (1.5, {"Event": "GoalReplayEnd", "Data": {}}),
+                    (0.5, {"Event": "CountdownBegin", "Data": {}}), (3, {"Event": "RoundStarted", "Data": {}})]
+
+        known = tr.my_team is not None
+        steps = [(0, upd(tr.score[0] if known else 0, tr.score[1] if known else 0, tr.clock if known else 180))]
+        if kind == "goal_me":
+            steps += goal(0, me, (me, 0), [38, 64, 97, 118, 142, 171][int(time.time()) % 6], "TheMailMan")
+        elif kind == "goal_team":
+            steps += goal(0, "TheMailMan", ("TheMailMan", 0), 91, me)
+        elif kind == "goal_against":
+            steps += goal(1, "Orange #1", ("Orange #1", 1), 104)
+        elif kind == "own_goal":
+            steps += goal(1, "Orange #2", (me, 0), 58)
+        elif kind == "refund":
+            steps += goal(0, me, (me, 0), 120)
+            steps += [(1, upd(tr.score[0] + 1, tr.score[1], max(0, tr.clock - 9)))] + goal(1, "Orange #1", ("Orange #1", 1), 99)
+        elif kind == "demoed":
+            steps += [(0, {"Event": "StatfeedEvent", "Data": {"EventName": "Demolish", "Type": "Demolition",
+                       "MainTarget": P("Orange #2", 1), "SecondaryTarget": P(me, 0)}})]
+        elif kind == "demo_given":
+            steps += [(0, {"Event": "StatfeedEvent", "Data": {"EventName": "Demolish", "Type": "Demolition",
+                       "MainTarget": P(me, 0), "SecondaryTarget": P("Orange #1", 1)}})]
+        elif kind in ("save", "epic_save"):
+            steps += [(0, {"Event": "StatfeedEvent", "Data": {"EventName": "EpicSave" if kind == "epic_save" else "Save",
+                       "Type": "Epic Save" if kind == "epic_save" else "Save", "MainTarget": P(me, 0)}})]
+        elif kind in ("win", "loss"):
+            steps += [(0, {"Event": "MatchEnded", "Data": {"WinnerTeamNum": 0 if kind == "win" else 1}}),
+                      (2, {"Event": "PodiumStart", "Data": {}})]
+        elif kind == "kickoff":
+            steps += [(0, {"Event": "CountdownBegin", "Data": {}}), (3, {"Event": "RoundStarted", "Data": {}})]
+        elif kind == "new_match":
+            steps = [(0, {"Event": "MatchCreated", "Data": {"MatchGuid": "SIM"}}), (0, upd(0, 0, 300)),
+                     (0, {"Event": "CountdownBegin", "Data": {}}), (3, {"Event": "RoundStarted", "Data": {}})]
+        else:
+            return web.json_response(dict(ok=False, error="unknown kind"))
+
+        async def play():
+            for delay, msg in steps:
+                await asyncio.sleep(delay)
+                await rl_send(tr.feed(msg))
+        asyncio.get_running_loop().create_task(play())
+        return web.json_response(dict(ok=True))
 
     async def ws_handler(request):
         ws = web.WebSocketResponse(heartbeat=20)
@@ -287,7 +407,10 @@ def make_app(cfg, replay=None):
         return ws
 
     async def status(_):
-        return web.json_response(dict(cap.status, names=cfg["names"], fps_target=cfg["fps"],
+        return web.json_response(dict(cap.status, names=cfg["names"], fps_target=cfg["fps"], game=cfg.get("game", "wardogs"),
+                                      rl=dict(connected=rl["connected"], error=rl["error"], events=rl["events"],
+                                              last=round(time.time() - rl["last"], 1) if rl["last"] else None,
+                                              record=[rl["tr"].wins, rl["tr"].losses]),
                                       replay_buffer=cfg["replay_buffer"], clients=len(hub.clients),
                                       overlays=len(hub.overlays), pilot_check=cap.reader.tpl.last))
 
@@ -303,6 +426,10 @@ def make_app(cfg, replay=None):
             cap.set_names([n.strip() for n in body["names"] if n.strip()])
         if "paused" in body:
             cap.status["paused"] = bool(body["paused"])
+        if body.get("game") in ("wardogs", "rocketleague") and body["game"] != cfg.get("game"):
+            cfg["game"] = body["game"]
+            rl["tr"] = Translator(cfg["names"])
+            await hub.send(dict(type="reset", t=time.time()))     # overlays reload into the other game's look
         if any(k in body for k in ("obs_host", "obs_port", "obs_password")):
             cap.cl = None
         cap.status["source"] = cfg["source"]
@@ -341,6 +468,7 @@ def make_app(cfg, replay=None):
     async def reset(_):
         """Fresh start for a new stream: forget test clicks, kills, cash baseline, everything."""
         cap.reader = Reader(names=cfg["names"])
+        rl["tr"] = Translator(cfg["names"])
         hub.log = []
         await hub.send(dict(type="reset", t=time.time()))
         hub.log = []
@@ -393,6 +521,7 @@ def make_app(cfg, replay=None):
         hub.loop = asyncio.get_running_loop()
         cap.start()
         threading.Thread(target=check_updates, daemon=True).start()
+        asyncio.get_running_loop().create_task(rl_client())
 
     app.router.add_get("/", index)
     app.router.add_get("/overlay", overlay)
@@ -410,6 +539,8 @@ def make_app(cfg, replay=None):
     app.router.add_post("/api/update", update)
     app.router.add_get("/api/snapshot.jpg", snapshot)
     app.router.add_get("/api/recent", recent)
+    app.router.add_post("/api/rl/setup", rl_setup_api)
+    app.router.add_post("/api/rl/sim", rl_sim)
     app.on_startup.append(on_start)
     return app
 

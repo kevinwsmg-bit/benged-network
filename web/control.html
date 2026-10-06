@@ -50,6 +50,26 @@ button.go{background:var(--amber);color:#171100;border-color:var(--amber)}
     <p class="hint" id="updNotes" style="margin:6px 0 0"></p>
   </div>
 
+  <div class="box" id="gameBox">
+    <div class="row" style="align-items:center;justify-content:space-between">
+      <h2 style="margin:0">Game</h2>
+      <div class="row" role="group" aria-label="Pick the game"><button type="button" id="gWD" data-game="wardogs">WARDOGS</button><button type="button" id="gRL" data-game="rocketleague">Rocket League</button></div>
+    </div>
+    <div id="rlBox" style="display:none;margin-top:10px">
+      <div class="row" style="align-items:center"><span class="pill" id="rlPill"><i></i><span id="rlTxt">Rocket League …</span></span><span class="hint" id="rlRec"></span></div>
+      <p class="hint" style="margin:8px 0">Rocket League sends the overlay its goals, saves, demos and replays itself, so nothing reads the screen and it costs almost no FPS. It has to be switched on once: press the button, then restart Rocket League.</p>
+      <div class="row"><button class="go" id="rlSetup" type="button">Switch on Rocket League stats</button><span class="hint" id="rlSetupMsg"></span></div>
+      <h2 style="margin-top:12px">Test BNSN (fires the real moments on stream)</h2>
+      <div class="row" id="rlTests">
+        <button data-sim="new_match">New match</button><button data-sim="goal_me">benged scores</button><button data-sim="goal_team">Teammate scores</button>
+        <button data-sim="goal_against">They score</button><button data-sim="own_goal">Own goal</button><button data-sim="refund">Goal, then refunded</button>
+        <button data-sim="demoed">benged demoed</button><button data-sim="demo_given">benged demos someone</button><button data-sim="epic_save">Epic save</button>
+        <button data-sim="win">Win</button><button data-sim="loss">Loss</button><button data-sim="kickoff">Kickoff (clears cards)</button>
+      </div>
+      <p class="hint">Big moments wait for a dead ball (goal + replay, his demo respawn, the countdown, the podium) and vanish the instant the ball goes live. Win/Loss tests build the streak: press Loss three times to see the funeral.</p>
+    </div>
+  </div>
+
   <div class="grid">
     <div class="box">
       <h2>What the reader sees</h2>
@@ -178,6 +198,22 @@ function line(e){const d=document.createElement('div');const t=new Date().toLoca
   if(e.type==='hello'||e.type==='reset')return;
   const {t:_,...rest}=e;d.textContent=t+'  '+e.type.toUpperCase()+'  '+JSON.stringify(rest);const l=$('log');l.prepend(d);while(l.children.length>200)l.lastChild.remove();}
 function ws(){const w=new WebSocket('ws://'+location.host+'/ws');w.onmessage=m=>{try{line(JSON.parse(m.data))}catch(_){}};w.onclose=()=>setTimeout(ws,2000);}
+/* game picker + Rocket League */
+let game=null;
+function showGame(g){game=g;$('gWD').className=g==='wardogs'?'go':'';$('gRL').className=g==='rocketleague'?'go':'';$('rlBox').style.display=g==='rocketleague'?'block':'none';}
+$('gameBox').onclick=async e=>{const b=e.target.closest('button[data-game]');if(!b||b.dataset.game===game)return;
+  showGame(b.dataset.game);await api('/api/config',{game:b.dataset.game});};
+$('rlSetup').onclick=async()=>{$('rlSetupMsg').textContent='Looking for Rocket League…';const r=await api('/api/rl/setup',{}).catch(()=>null);
+  if(!r){$('rlSetupMsg').textContent='Something went wrong, try again.';return;}
+  if(!r.ok){$('rlSetupMsg').textContent=r.error||(r.results||[]).map(x=>x.error).join(' ');return;}
+  $('rlSetupMsg').textContent='Done ('+r.results.filter(x=>x.ok).length+' install found). Restart Rocket League, then start a match.';};
+$('rlTests').onclick=e=>{const b=e.target.closest('button[data-sim]');if(b)api('/api/rl/sim',{kind:b.dataset.sim});};
+async function pollRL(){try{const s=await api('/api/status');if(s.game&&s.game!==game)showGame(s.game);
+  if(s.rl){$('rlPill').className='pill '+(s.rl.connected?'ok':'bad');
+    $('rlTxt').textContent=s.rl.connected?'Rocket League connected'+(s.rl.last!=null?' · last message '+s.rl.last+' s ago':''):(s.rl.error||'Waiting for Rocket League');
+    $('rlRec').textContent='Tonight '+s.rl.record[0]+'-'+s.rl.record[1]+' · '+s.rl.events+' events';}
+ }catch(_){}setTimeout(pollRL,2000);}
+pollRL();
 loadSources().catch(()=>{});poll();ws();
 </script>
 </body>

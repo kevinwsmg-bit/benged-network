@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BNSN · Benged Network Sports</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:ital,wght@0,600;0,800;1,800;1,900&family=Barlow:wght@500;600;700&family=JetBrains+Mono:wght@700&family=Special+Elite&display=swap">
+<style>
+/* BNSN (Benged Network Sports): the Rocket League channel of Benged Network.
+   Rule: quiet edges while the ball is live, produced moments only in dead balls
+   (goal replays, his demo respawn, kickoff countdown, podium, menus). OBS browser source, 1920x1080. */
+:root{
+  --blue:#2d7dff; --orange:#ff7a1a; --team:#2d7dff; --gold:#f2c14e; --shame:#8f98a6;
+  --glass:rgba(10,14,22,.86); --glass2:rgba(22,29,42,.92); --chrome:linear-gradient(180deg,#f4f7fb,#9aa6b8 48%,#5d6879 52%,#c9d2de);
+  --ink:#f3f6fb; --dim:#a9b3c2;
+  --display:"Saira Condensed","Arial Narrow",Impact,sans-serif; --body:"Barlow","Segoe UI",sans-serif; --mono:"JetBrains Mono",Consolas,monospace;
+  --cam-x:24px; --cam-y:22px; --cam-w:360px; --cam-h:203px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:transparent;overflow:hidden}
+#stage{position:relative;width:1920px;height:1080px;color:var(--ink);font-family:var(--body)}
+.hide{display:none!important}
+#offline{position:absolute;right:8px;top:8px;font:700 12px var(--body);background:#c00;color:#fff;padding:2px 6px;display:none}
+body.offline #offline{display:block}
+
+/* ---------- living TV set (his cam lives in it) ---------- */
+#tv{position:absolute;left:calc(var(--cam-x) - 22px);top:calc(var(--cam-y) - 18px);width:calc(var(--cam-w) + 44px);height:calc(var(--cam-h) + 36px);
+  transform:rotate(-1.2deg);transition:transform .25s}
+#tv .bezel{position:absolute;inset:0;border-radius:22px;padding:18px 22px;background:#1a1f28;
+  box-shadow:inset 0 0 0 3px #3a4352,inset 0 0 0 6px #0b0e13,0 0 0 2px #0b0e13,0 10px 0 -2px #0b0e13,0 0 38px -4px var(--team);
+  -webkit-mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0);mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0);
+  transition:box-shadow .6s}
+#tv .screen{position:absolute;left:22px;top:18px;width:var(--cam-w);height:var(--cam-h);border-radius:14px;box-shadow:inset 0 0 0 2px rgba(255,255,255,.12),inset 0 0 40px rgba(0,0,0,.35);overflow:hidden}
+/* rabbit ears stick out of the top-right corner (the cam sits at the top of the screen, so not straight up) */
+#tv .ears{position:absolute;right:30px;top:6px;width:0;height:0}
+#tv .ears i{position:absolute;bottom:0;width:4px;height:62px;background:var(--chrome);border-radius:2px;transform-origin:bottom center}
+#tv .ears i:first-child{transform:rotate(48deg)}#tv .ears i:last-child{transform:rotate(78deg)}
+#tv .ears i::after{content:"";position:absolute;top:-6px;left:-4px;width:12px;height:12px;border-radius:50%;background:var(--chrome)}
+#tv.snap .ears i:first-child{animation:earL .6s}#tv.snap .ears i:last-child{animation:earR .6s}
+@keyframes earL{30%{transform:rotate(20deg)}60%{transform:rotate(62deg)}}@keyframes earR{30%{transform:rotate(104deg)}60%{transform:rotate(66deg)}}
+#tv .knobs{position:absolute;right:-16px;top:40px;display:flex;flex-direction:column;gap:12px}
+#tv .knobs i{width:14px;height:14px;border-radius:50%;background:var(--chrome);box-shadow:0 0 0 2px #0b0e13}
+#tv.gold .bezel{box-shadow:inset 0 0 0 3px var(--gold),inset 0 0 0 6px #0b0e13,0 0 0 2px #0b0e13,0 0 46px -2px var(--gold)}
+#tv.tilt .bezel{box-shadow:inset 0 0 0 3px #59626f,inset 0 0 0 6px #0b0e13,0 0 0 2px #0b0e13,0 0 30px -6px #000}
+#rain{position:absolute;inset:18px 22px;border-radius:14px;pointer-events:none;opacity:0;transition:opacity 1s;
+  background:repeating-linear-gradient(104deg,rgba(170,200,255,.0) 0 14px,rgba(170,200,255,.35) 14px 15px);background-size:40px 40px;animation:rain .45s linear infinite}
+#tv.tilt #rain{opacity:.55}
+@keyframes rain{to{background-position:-12px 40px}}
+#crack{position:absolute;inset:18px 22px;pointer-events:none;opacity:0;transition:opacity .4s}
+#tv.tilt.deep #crack{opacity:.85}
+#ring{position:absolute;inset:10px 14px;border-radius:18px;border:7px solid #4caf50;opacity:0;transition:opacity .4s;pointer-events:none}
+#ring b{position:absolute;left:50%;bottom:-17px;transform:translateX(-50%);background:#4caf50;color:#fff;font:800 italic 17px var(--display);padding:1px 10px;letter-spacing:.06em;white-space:nowrap}
+#tv.otw #ring{opacity:1}
+#debris{position:absolute;left:22px;right:22px;bottom:16px;height:60px;pointer-events:none}
+#debris i{position:absolute;bottom:0;display:block;transform-origin:center;animation:drop .5s cubic-bezier(.3,1.6,.5,1) both}
+@keyframes drop{from{transform:translateY(-120px) rotate(0)}}
+#plate{position:absolute;left:calc(var(--cam-x) - 6px);top:calc(var(--cam-y) + var(--cam-h) + 26px);display:flex;align-items:stretch;transform:rotate(-1.2deg);filter:drop-shadow(0 4px 0 #0b0e13)}
+#plate .k{background:var(--team);color:#fff;font:800 italic 17px var(--display);padding:4px 10px;letter-spacing:.05em;transition:background .6s}
+#plate .v{background:var(--glass2);font:800 italic 21px var(--display);padding:2px 14px;letter-spacing:.03em;text-transform:uppercase;white-space:nowrap}
+#plate .r{background:#0b0e13;color:var(--dim);font:700 15px var(--mono);padding:6px 10px}
+#plate.swap .v{animation:swap .5s}
+@keyframes swap{0%{transform:rotateX(90deg)}100%{transform:none}}
+
+/* ---------- dead-ball layer ---------- */
+#wipe{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+#wipe i{position:absolute;top:-10%;bottom:-10%;width:70%;left:-80%;background:var(--team);transform:skewX(-18deg);box-shadow:0 0 0 18px #0b0e13,0 0 0 30px var(--gold)}
+#wipe.go i{animation:wipe .75s cubic-bezier(.7,0,.3,1) forwards}
+@keyframes wipe{0%{left:-80%}100%{left:130%}}
+.card{position:absolute;opacity:0;transform:translateY(24px) skewX(-6deg);transition:opacity .16s,transform .22s cubic-bezier(.2,1.4,.4,1);pointer-events:none}
+.card.on{opacity:1;transform:none}
+.plate{background:var(--glass);border:2px solid #0b0e13;box-shadow:0 0 0 2px rgba(255,255,255,.12),0 18px 40px rgba(0,0,0,.55)}
+/* goal lower third */
+#lower{left:656px;bottom:150px;width:880px}
+#lower .bar{display:grid;grid-template-columns:auto 1fr auto;align-items:stretch}
+#lower .tag{background:var(--team);font:900 italic 40px/1 var(--display);padding:14px 20px 10px;letter-spacing:.02em;text-transform:uppercase;clip-path:polygon(0 0,100% 0,92% 100%,0 100%)}
+#lower .who{padding:10px 18px;display:flex;flex-direction:column;justify-content:center;min-width:0}
+#lower .who b{font:800 italic 34px/1 var(--display);text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#lower .who small{font:600 18px var(--body);color:var(--dim)}
+#radar{display:flex;flex-direction:column;align-items:center;justify-content:center;background:#05070b;padding:8px 18px;border-left:3px solid var(--gold);min-width:220px}
+#radar .d{font:700 58px/1 var(--mono);color:#ff3b30;text-shadow:0 0 14px rgba(255,59,48,.7);font-variant-numeric:tabular-nums}
+#radar small{font:700 13px var(--mono);letter-spacing:.2em;color:var(--dim)}
+#lower .sub{display:flex;gap:0;align-items:stretch}
+#lower .title{flex:1;background:var(--glass2);padding:8px 18px;font:800 italic 26px var(--display);color:var(--gold);text-transform:uppercase;letter-spacing:.02em}
+#lower .tier{background:var(--gold);color:#111;padding:8px 16px;font:900 italic 24px var(--display);text-transform:uppercase}
+#lower .line{background:#0b0e13;padding:8px 18px;font:600 22px var(--body)}
+#lower.against .tag{background:var(--shame)}#lower.against .title{color:var(--dim)}
+#replaytag{left:40px;top:140px;font:900 italic 46px var(--display);letter-spacing:.06em;color:#fff;padding:6px 22px;background:#d42a2a;clip-path:polygon(0 0,100% 0,94% 100%,0 100%)}
+#replaytag::before{content:"";display:inline-block;width:16px;height:16px;border-radius:50%;background:#fff;margin-right:12px;animation:blink 1s steps(2) infinite}
+@keyframes blink{50%{opacity:0}}
+/* centre card (9:16 safe: x 656-1264) */
+#center{left:656px;top:300px;width:608px}
+#center .head{font:900 italic 44px/1 var(--display);text-transform:uppercase;padding:14px 20px 10px;background:var(--team)}
+#center .body{padding:16px 20px;font:600 24px/1.3 var(--body)}
+#center .foot{padding:10px 20px;background:#0b0e13;font:700 16px var(--mono);color:var(--dim);letter-spacing:.06em}
+#center .meter{height:22px;background:#0b0e13;margin:12px 0 4px;position:relative;overflow:hidden}
+#center .meter i{position:absolute;inset:0 auto 0 0;background:#3cb371;display:block;width:0;transition:width 2.6s linear}
+/* themed card skins */
+.skin-obit .head{background:#111!important;font-family:var(--display)}
+.skin-obit .body{background:#efe9dc;color:#1a1a1a;font-family:"Special Elite",Georgia,serif}
+.skin-claim .head{background:#7a1d1d!important}
+.skin-claim .body{background:#f3f1ea;color:#1f1f1f;font-family:"Special Elite",monospace}
+.skin-gofund .head{background:#02a95c!important}
+.skin-gofund .body{background:#fff;color:#222}
+.skin-standby .head{background:#222!important}
+.skin-standby .body{background:linear-gradient(90deg,#c0c0c0 0 14%,#c0c000 14% 28%,#00c0c0 28% 42%,#00c000 42% 57%,#c000c0 57% 71%,#c00000 71% 85%,#0000c0 85%);color:#000;font:900 italic 40px/1.1 var(--display);text-align:center;padding:40px 16px;text-shadow:0 0 6px #fff}
+.skin-chalk .head{background:#111!important;color:#ffd400;border-block:12px solid transparent;border-image:repeating-linear-gradient(45deg,#ffd400 0 16px,#111 16px 32px) 12}
+.skin-chalk .body{background:#1d2a1f;color:#f4f4f4;font-family:"Special Elite",cursive}
+.skin-ticket .head{background:#e8e8e8!important;color:#b10000}
+.skin-ticket .body{background:#fff8d6;color:#222;font-family:"Special Elite",monospace}
+.skin-linkedin .head{background:#0a66c2!important;font-family:var(--body);font-style:normal;font-weight:700;font-size:28px}
+.skin-linkedin .body{background:#fff;color:#1d1d1d;font-family:var(--body);font-weight:500}
+.skin-cnn .head{background:#cc0000!important}
+.skin-cnn .body{background:#111;color:#fff;font:800 italic 30px/1.15 var(--display);text-transform:uppercase}
+.skin-xp .head{background:linear-gradient(180deg,#0058ee,#3a93ff 8%,#0050d8 90%)!important;font:700 22px Tahoma,var(--body);font-style:normal;padding:8px 14px}
+.skin-xp .body{background:#ece9d8;color:#000;font:500 22px Tahoma,var(--body)}
+.skin-hr .head{background:#55606e!important}
+.skin-hr .body{background:#fafafa;color:#222;font-family:Georgia,serif}
+.skin-podium .head{background:#0b2a55!important}
+.skin-podium .body{background:#0b2a55;color:#fff;font:600 italic 30px/1.25 Georgia,serif}
+.skin-uninstall .head,.skin-fortnite .head{background:#2b2f36!important;font-family:var(--body);font-style:normal;font-weight:700;font-size:26px}
+.skin-uninstall .body,.skin-fortnite .body{background:#f0f0f0;color:#111}
+.skin-fortnite .meter i{background:#7b2cff}
+.skin-resign .head{background:#3b2f2a!important}
+.skin-resign .body{background:#fffdf7;color:#222;font-family:Georgia,serif;font-style:italic}
+.btn{display:inline-block;margin-top:12px;padding:4px 26px;border:1px solid #003c74;background:linear-gradient(#fff,#e3e3db);color:#000;font:500 18px Tahoma,sans-serif;border-radius:3px}
+/* stamps */
+#stamp{left:700px;top:330px;width:520px;text-align:center;font:900 italic 96px/1 var(--display);color:#e3262f;border:10px solid #e3262f;padding:10px 0;transform:rotate(-12deg) scale(2.2);opacity:0;mix-blend-mode:normal;background:rgba(255,255,255,.08)}
+#stamp.on{animation:stamp .45s cubic-bezier(.2,1.6,.4,1) forwards}
+@keyframes stamp{to{transform:rotate(-12deg) scale(1);opacity:.95}}
+/* small tick (rarity: common plays) */
+#tick{left:calc(var(--cam-x) + var(--cam-w) + 40px);top:var(--cam-y);font:800 italic 26px var(--display);text-transform:uppercase;padding:6px 14px;background:var(--glass);border-left:5px solid var(--team)}
+/* end of match: the Sandler saga */
+#saga{left:0;top:0;width:1920px;height:1080px}
+#saga .frame{position:absolute;left:600px;top:150px;width:720px;height:560px;display:flex;align-items:flex-end;justify-content:center}
+#saga img{max-width:100%;max-height:100%;filter:drop-shadow(0 18px 40px rgba(0,0,0,.7))}
+#saga .cap{position:absolute;left:520px;right:520px;top:740px;text-align:center}
+#saga .cap b{display:block;font:900 italic 72px/1 var(--display);text-transform:uppercase;text-shadow:0 5px 0 #0b0e13}
+#saga .cap small{display:block;font:700 28px var(--body);margin-top:8px;color:var(--ink);text-shadow:0 2px 6px #000}
+#saga .chap{position:absolute;left:600px;top:96px;font:700 18px var(--mono);letter-spacing:.2em;color:var(--dim);background:var(--glass);padding:6px 12px}
+#saga.rain .frame::after{content:"";position:absolute;inset:-40px;background:repeating-linear-gradient(104deg,transparent 0 16px,rgba(170,200,255,.45) 16px 18px);background-size:44px 44px;animation:rain .4s linear infinite}
+#saga.funeral .frame{background:#111;border:16px solid #2a2118;box-shadow:0 0 0 4px #c9a86a,0 20px 60px #000;align-items:center}
+#saga.funeral img{filter:grayscale(1) contrast(1.1);max-height:420px}
+#saga.funeral .frame::before{content:"IN LOVING MEMORY";position:absolute;top:-56px;left:0;right:0;text-align:center;font:400 34px "Special Elite",serif;color:#e8dcc0}
+#saga.empty .frame{background:#0b0e13;border:3px dashed var(--shame);align-items:center;flex-direction:column;justify-content:center;font:400 30px/1.4 "Special Elite",serif;color:#d9d9d9;text-align:center;padding:40px}
+#saga.win img{animation:bounce .5s ease-in-out infinite alternate}
+@keyframes bounce{to{transform:translateY(-14px) rotate(1.5deg)}}
+canvas#fx{position:absolute;inset:0;pointer-events:none}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="offline">BNSN OFFLINE · start Benged Network</div>
+  <div id="tv"><div class="bezel"></div><div class="screen"></div><div class="ears"><i></i><i></i></div><div class="knobs"><i></i><i></i></div>
+    <div id="rain"></div>
+    <svg id="crack" viewBox="0 0 360 203"><path d="M250 0 L232 46 L268 70 L226 120 L246 160 L214 203 M232 46 L190 58 M268 70 L320 82 M226 120 L180 128" stroke="rgba(255,255,255,.75)" stroke-width="2.5" fill="none"/></svg>
+    <div id="ring"><b>#OPENTOWORK</b></div><div id="debris"></div></div>
+  <div id="plate"><span class="k">CURRENTLY</span><span class="v" id="job">BALL CHASER</span><span class="r" id="rec">0-0</span></div>
+
+  <div id="wipe"><i></i></div>
+  <div id="replaytag" class="card">INSTANT REPLAY</div>
+  <div id="lower" class="card plate">
+    <div class="bar"><div class="tag" id="lTag">GOAL</div><div class="who"><b id="lWho">BENGED</b><small id="lSub">assist: —</small></div>
+      <div id="radar"><div class="d" id="rDig">000</div><small>KM/H · RADAR GUN</small></div></div>
+    <div class="sub"><div class="title" id="lTitle">THE UNPAID INVOICE</div><div class="tier" id="lTier">EXPRESS</div></div>
+    <div class="line" id="lLine">Delivered by UPS.</div>
+  </div>
+  <div id="center" class="card plate"><div class="head" id="cHead"></div><div class="body" id="cBody"></div><div class="foot" id="cFoot"></div></div>
+  <div id="stamp" class="card">REFUNDED</div>
+  <div id="tick" class="card"></div>
+  <div id="saga" class="card"><div class="chap" id="sChap"></div><div class="frame" id="sFrame"></div><div class="cap"><b id="sCap"></b><small id="sSub"></small></div></div>
+  <canvas id="fx" width="1920" height="1080"></canvas>
+</div>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+
+/* ================= state ================= */
+const S={myTeam:null,score:[0,0],clock:300,ot:false,live:false,inMatch:false,
+  wins:0,losses:0,streak:0,goals:0,saves:0,demoed:0,demosGiven:0,refunds:0,ownGoals:0,
+  lastDemoGiven:-1e9,lastMyGoalCard:null,debris:0,otw:false};
+const teamName=t=>t===1?"ORANGE":"BLUE";
+function setTeam(t){S.myTeam=t;document.documentElement.style.setProperty("--team",t===1?"var(--orange)":"var(--blue)");}
+
+/* ================= line pools: never the same line twice in a night ================= */
+const used=new Set();
+function line(pool,key){const free=pool.filter(l=>!used.has(key+l));const l=pick(free.length?free:pool);used.add(key+l);return l;}
+
+/* ================= audio: tiny synth stings + files + announcer ================= */
+let AC=null;const ac=()=>AC||(AC=new (window.AudioContext||window.webkitAudioContext)());
+function tone(f,d,type="square",v=.05,t0=0,f2){try{const c=ac(),t=c.currentTime+t0,o=c.createOscillator(),g=c.createGain();o.type=type;o.frequency.setValueAtTime(f,t);if(f2)o.frequency.exponentialRampToValueAtTime(f2,t+d);g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.0001,t+d);o.connect(g).connect(c.destination);o.start(t);o.stop(t+d);}catch(e){}}
+function noise(d,v=.08,hp=800){try{const c=ac(),b=c.createBuffer(1,c.sampleRate*d,c.sampleRate),a=b.getChannelData(0);for(let i=0;i<a.length;i++)a[i]=(Math.random()*2-1)*(1-i/a.length);const s=c.createBufferSource(),f=c.createBiquadFilter(),g=c.createGain();f.type="highpass";f.frequency.value=hp;g.gain.value=v;s.buffer=b;s.connect(f).connect(g).connect(c.destination);s.start();}catch(e){}}
+const SFX={
+  whoosh:()=>{noise(.45,.07,1200);tone(220,.4,"sawtooth",.03,0,1200);},
+  sting:()=>{[523,659,784].forEach((f,i)=>tone(f,.18,"square",.045,i*.07));},
+  shame:()=>{[392,370,349,311].forEach((f,i)=>tone(f,i===3?.8:.28,"sawtooth",.06,i*.3));},
+  nosale:()=>{tone(880,.08,"square",.05);tone(660,.3,"square",.05,.1);noise(.15,.05,3000);},
+  siren:()=>{for(let i=0;i<3;i++){tone(700,.25,"sawtooth",.04,i*.5,1100);tone(1100,.25,"sawtooth",.04,i*.5+.25,700);}},
+  thud:()=>{tone(90,.35,"sine",.12,0,40);noise(.2,.06,200);},
+  ticket:()=>{tone(1400,.05,"square",.03);tone(1400,.05,"square",.03,.09);},
+};
+function playFile(src,vol=.9){return new Promise(res=>{try{const a=new Audio(src);a.volume=vol;a.onended=()=>res(true);a.onerror=()=>res(false);a.play().catch(()=>res(false));}catch(e){res(false);}});}
+/* announcer: recorded lines in /assets/rl/announcer/<tier>_<n>.mp3 if they exist; otherwise Windows' built-in voice */
+async function announce(text,tier){
+  const n=1+Math.floor(Math.random()*10);
+  if(await playFile(`assets/rl/announcer/${tier}_${n}.mp3`))return;
+  try{if(!("speechSynthesis" in window))return;const u=new SpeechSynthesisUtterance(text);u.rate=1.08;u.pitch=.85;u.volume=1;
+    const v=speechSynthesis.getVoices().find(v=>/David|Guy|Mark|Male/i.test(v.name));if(v)u.voice=v;speechSynthesis.cancel();speechSynthesis.speak(u);}catch(e){}
+}
+
+/* ================= confetti (only while a card is up) ================= */
+const FX=$("fx").getContext("2d");let parts=[],fxOn=false,fxRev=false;
+function confetti(n=140,rev=false){fxRev=rev;for(let i=0;i<n;i++)parts.push({x:960+Math.random()*300-150,y:rev?-20:560,vx:(Math.random()-.5)*900,vy:rev?Math.random()*300:-(300+Math.random()*700),c:pick(["#f2c14e","#fff","#2d7dff","#ff7a1a","#3cb371"]),s:4+Math.random()*6,l:1.6+Math.random(),t:0});
+  if(!fxOn){fxOn=true;let last=performance.now();const step=now=>{const dt=Math.min(.25,(now-last)/1000);last=now;FX.clearRect(0,0,1920,1080);
+    parts=parts.filter(p=>{p.t+=dt;if(p.t>p.l)return false;p.vy+=900*dt*(fxRev?-.35:1);p.x+=p.vx*dt;p.y+=p.vy*dt;FX.globalAlpha=1-p.t/p.l;FX.fillStyle=p.c;FX.fillRect(p.x,p.y,p.s,p.s*.6);return true});
+    FX.globalAlpha=1;if(parts.length)requestAnimationFrame(step);else{fxOn=false;FX.clearRect(0,0,1920,1080);}};requestAnimationFrame(step);}}
+
+/* ================= THE DEAD-BALL DIRECTOR =================
+   Cards wait in a queue and only play while the ball is dead (goal + replay, countdown, podium,
+   menus) or, for his own demo, during his ~3 s respawn. GO (RoundStarted) clears everything at once.
+   One card at a time; each knows how long it may wait before it's stale and dropped. */
+const Q=[];let showing=null,respawnUntil=0,gen=0;
+function canPlay(c){return !S.live||(c.respawn&&performance.now()<respawnUntil);}
+function enqueue(c){c.at=performance.now();c.ttl=c.ttl||9000;Q.push(c);Q.sort((a,b)=>(b.pri||0)-(a.pri||0));pump();}
+async function pump(){
+  if(showing)return;
+  const now=performance.now();
+  for(let i=0;i<Q.length;i++){if(now-Q[i].at>Q[i].ttl){Q.splice(i,1);i--;}}
+  const i=Q.findIndex(canPlay);if(i<0)return;
+  const c=Q.splice(i,1)[0];showing=c;const my=++gen;
+  try{await c.run(()=>my!==gen);}catch(e){console.error(e);}
+  if(my===gen){hideAll();showing=null;pump();}
+}
+function cutAll(){gen++;Q.length=0;showing=null;hideAll();}
+function hideAll(){document.querySelectorAll(".card.on").forEach(e=>e.classList.remove("on"));$("stamp").classList.remove("on");}
+/* a card's run() awaits this; returns true if it was cut (GO arrived) */
+async function hold(ms,cut){const end=performance.now()+ms;while(performance.now()<end){if(cut())return true;await sleep(60);}return cut();}
+function goLive(){S.live=true;cutAll();}            /* GO: nothing may stay on screen */
+function goDead(){S.live=false;pump();}
+setInterval(pump,250);
+
+/* ================= cards ================= */
+function center(skin,head,body,foot){const c=$("center");c.className="card plate skin-"+skin;$("cHead").innerHTML=head;$("cBody").innerHTML=body;$("cFoot").textContent=foot||"";$("cFoot").classList.toggle("hide",!foot);void c.offsetWidth;c.classList.add("on");}
+function tick(text){const t=$("tick");t.textContent=text;t.classList.remove("on");void t.offsetWidth;t.classList.add("on");setTimeout(()=>t.classList.remove("on"),2600);}
+function snapEars(){const tv=$("tv");tv.classList.remove("snap");void tv.offsetWidth;tv.classList.add("snap");}
+let jobT=0;
+function job(title,force){if(!force&&performance.now()-jobT<20000)return;jobT=performance.now();const p=$("plate");$("job").textContent=title;p.classList.remove("swap");void p.offsetWidth;p.classList.add("swap");}
+function mood(){const tv=$("tv");tv.classList.toggle("gold",S.streak>=2);tv.classList.toggle("tilt",S.streak<=-2);tv.classList.toggle("deep",S.streak<=-3);$("rec").textContent=S.wins+"-"+S.losses;}
+function addDebris(){if(S.debris>=14)return;S.debris++;const d=document.createElement("i");const kind=S.debris%3;
+  d.style.left=(8+Math.random()*82)+"%";
+  d.innerHTML=kind===0?'<svg width="34" height="34" viewBox="0 0 34 34"><circle cx="17" cy="17" r="15" fill="#1b1b1b" stroke="#555" stroke-width="5"/><circle cx="17" cy="17" r="5" fill="#888"/></svg>'
+    :kind===1?'<svg width="40" height="16" viewBox="0 0 40 16"><path d="M2 14 L10 3 L22 9 L30 2 L38 13 Z" fill="#6a7383" stroke="#2a2f38" stroke-width="2"/></svg>'
+    :'<svg width="18" height="18" viewBox="0 0 18 18"><path d="M9 1 L12 6 L17 7 L13 11 L14 17 L9 14 L4 17 L5 11 L1 7 L6 6Z" fill="#c9cfd8" stroke="#3a3f48"/></svg>';
+  d.style.transform=`rotate(${Math.random()*80-40}deg)`;$("debris").appendChild(d);}
+function clearDebris(){S.debris=0;$("debris").innerHTML="";}
+
+/* ---------- goal replay package (radar gun + Goal Naming Committee) ---------- */
+const TIERS=[
+ {max:45,name:"USPS",key:"usps",lines:["Delivered by USPS.","Tracking says: eventually.","That ball took the scenic route.","Ground shipping. Very ground.","The keeper had time to file his taxes.","Slower than his queue times.","Rolled in like it was late for nothing.","A library-volume goal.","Signature not required.","Bank error in your favor."]},
+ {max:80,name:"STANDARD SHIPPING",key:"ups",lines:["Delivered by UPS.","Arrived in three to five business days.","Package left at the door.","A respectable little goal.","Polite. Professional. In the net.","Your order has been delivered.","That one knocked first.","Nothing flashy. Still counts.","Customer satisfied.","Standard shipping, no tracking."]},
+ {max:110,name:"NEXT-DAY AIR",key:"express",lines:["Next-day air!","Express delivery, sign here.","That had some mustard on it.","Overnighted to the back of the net.","The net felt that one.","Priority mail, baby!","Clean. Fast. Rude.","Ooh, that one had intent.","Somebody call it in, that's moving.","Express lane. No coupons."]},
+ {max:140,name:"SPEEDING TICKET",key:"ticket",lines:["That's a speeding ticket!","License and registration, please.","Somebody recalibrate the radar gun!","That shot has a criminal record.","Sir, this is a residential area.","No regard for the speed limit whatsoever.","The net is filing a complaint.","That's going on his permanent record.","Highway patrol is in pursuit.","Fines double in a work zone!"]},
+ {max:170,name:"FELONY",key:"felony",lines:["That shot's illegal in four states!","That's a felony in most countries.","Call the FBI, that ball is evidence.","They're issuing a warrant for that shot.","The keeper's lawyer would like a word.","That shot is wanted in three counties.","Somebody alert Interpol.","Assault with a deadly sphere!","The ball needs witness protection.","That's not a goal, that's a crime scene."]},
+ {max:999,name:"SUPERSONIC CRIME",key:"crime",lines:["That ball broke the sound barrier and several laws.","NASA wants to know your location.","The Geneva Convention has been notified.","The net needs therapy.","Air traffic control is asking questions.","They're putting that shot in a museum. And a prison.","Sonic boom, and a lawsuit.","Check the replay for smoke.","The physics engine is filing a complaint.","Somebody call the Pentagon."]},
+];
+const ADJ=["Unpaid","Accidental","Tax-Deductible","Emotional","Questionable","Federally Insured","Gluten-Free","Unlicensed","Ceremonial","Midlife","Overdue","Regional","Discount","Premium","Refurbished","Seasonal","Load-Bearing","Off-Brand"];
+const NOUN=["Invoice","Crisis","Delivery","Apology","Masterpiece","Refinance","Intervention","Return Policy","Settlement","Breakthrough","Lawsuit","Group Project","Side Quest","Customer Review","Software Update","Warranty Claim"];
+function goalTitle(e){
+  const me=S.myTeam,us=e.my_team===1?e.orange:e.blue,them=e.my_team===1?e.blue:e.orange;
+  if(e.ot&&e.mine)return line(["The Overtime Settlement","Sudden Death, Sudden Bills","The Overtime Refinance","Extra Time, Extra Paperwork"],"t");
+  if(e.mine&&us===them)return line(["The Equalizer (Off-Brand)","The Participation Trophy","The Tie-Breaker's Cousin","Even Steven"],"t");
+  if(e.mine&&us-them>=3)return line(["Running Up The Tab","The Unnecessary Sequel","Pouring One Out","Rubbing It In (Respectfully)"],"t");
+  return "The "+pick(ADJ)+" "+pick(NOUN);
+}
+function situation(e){const us=e.my_team===1?e.orange:e.blue,them=e.my_team===1?e.blue:e.orange;
+  if(e.mine){if(e.ot)return"OVERTIME WINNER";if(us===them)return"TIES IT UP";if(us-them===1)return"GO-AHEAD GOAL";if(us-them>=3)return"PADDING THE STATS";return"INSURANCE";}
+  if(them===us)return"TIED BACK UP";if(them-us===1)return"OPPONENTS LEAD";if(them-us>=3)return"IT'S GETTING UGLY";return"PULLS ONE BACK";}
+function radarCount(to){const el=$("rDig"),t0=performance.now();return new Promise(res=>{const f=now=>{const k=Math.min(1,(now-t0)/900);el.textContent=String(Math.round(to*(1-Math.pow(1-k,3)))).padStart(3,"0");if(k<1)requestAnimationFrame(f);else res();};requestAnimationFrame(f);});}
+function goalCard(e){
+  const tier=TIERS.find(t=>e.speed<=t.max);
+  enqueue({pri:5,ttl:15000,run:async cut=>{
+    const L=$("lower");L.classList.toggle("against",!e.mine);
+    $("lTag").textContent=e.mine?(e.scorer_me?"BENGED SCORES":"GOAL"):"CONCEDED";
+    $("lWho").textContent=e.mine?(e.scorer_me?"BENGED":e.scorer||"TEAMMATE"):teamName(1-S.myTeam)+" SCORES";
+    $("lSub").textContent=e.mine?(e.assister?("assist: "+(e.assister_me?"benged":e.assister)):"unassisted"):situation(e).toLowerCase();
+    $("lTitle").textContent=e.mine?goalTitle(e):situation(e);
+    $("lTier").textContent=tier.name;
+    const said=line(tier.lines,tier.key);$("lLine").textContent="“"+said+"”";
+    $("wipe").classList.remove("go");void $("wipe").offsetWidth;$("wipe").classList.add("go");SFX.whoosh();
+    if(await hold(450,cut))return;
+    L.classList.add("on");radarCount(e.speed);if(e.mine)SFX.sting();
+    if(e.mine&&e.scorer_me){confetti();S.lastMyGoalCard=performance.now();}
+    if(e.mine&&performance.now()-S.lastDemoGiven<5000)$("lSub").textContent="assist credited to: VIOLENCE";
+    setTimeout(()=>{if(!cut())announce(said,tier.key);},700);
+    if(await hold(5200,cut))return;
+    L.classList.remove("on");
+  }});
+  enqueue({pri:4,ttl:9000,run:async cut=>{$("replaytag").classList.add("on");await hold(2400,cut);$("replaytag").classList.remove("on");}});
+}
+
+/* ---------- celebration refund ---------- */
+function refundCard(){
+  S.refunds++;
+  enqueue({pri:7,ttl:12000,run:async cut=>{
+    center("claim","CELEBRATION REFUNDED","His goal celebration has been returned to the store.<br>Reason for return: <b>they scored right back.</b>",`CELEBRATIONS REFUNDED TONIGHT: ${S.refunds}`);
+    confetti(120,true);
+    if(await hold(500,cut))return;const st=$("stamp");st.textContent="REFUNDED";st.classList.add("on");SFX.nosale();
+    await hold(3800,cut);
+  }});
+}
+
+/* ---------- own goal: rotating formats ---------- */
+function ownGoal(e){
+  S.ownGoals++;S.otw=true;$("tv").classList.add("otw");job("DOUBLE AGENT",true);
+  const other=teamName(1-S.myTeam);
+  const F=[
+   ()=>center("linkedin","in &nbsp;LinkedIn",`<b>benged</b> · Rocket League Defender · 1st<br><br>I'm thrilled to announce that I have accepted a new position with the <b>${other} team</b>. Grateful for the opportunity. 🧡<br><br><span style="color:#0a66c2">#OpenToWork #NewBeginnings #Defending</span>`,"👍 Celebrate · 💬 4,812 comments"),
+   ()=>center("cnn","BREAKING NEWS",`Local man scores on himself<br><span style="color:#ffd400">Officials say they are “not surprised”</span>`,"LIVE · BNSN NEWS DESK"),
+   ()=>center("xp","Rocket League",`<div style="display:flex;gap:14px;align-items:center"><span style="font-size:44px">⚠️</span><span>Task failed successfully.</span></div><div style="text-align:right"><span class="btn">OK</span></div>`),
+   ()=>center("hr","MEMO · HUMAN RESOURCES",`Effective immediately, <b>benged</b> is placed on administrative leave pending review of “that.”<br><br>Please return your badge to the ${other.toLowerCase()} team.`,"CONFIDENTIAL · DO NOT FORWARD"),
+   ()=>center("podium","PRESS CONFERENCE",`“The ball was lagging.”<br><span style="font-size:20px;opacity:.8">— benged, moments ago</span>`,"NO FURTHER QUESTIONS"),
+   ()=>{center("uninstall","Uninstalling Rocket League",`Removing files… <span id="pct">0</span>%<div class="meter"><i id="mtr"></i></div><span style="font-size:18px;opacity:.75">Estimated time remaining: forever</span>`);requestAnimationFrame(()=>{$("mtr").style.width="37%";let p=0;const iv=setInterval(()=>{p=Math.min(37,p+3);const el=$("pct");if(el)el.textContent=p;if(p>=37)clearInterval(iv);},160);});},
+   ()=>{center("fortnite","Installing Fortnite",`Downloading… <b>98 MB/s</b><div class="meter"><i id="mtr"></i></div><span style="font-size:18px;opacity:.75">Faster than his rotations.</span>`);requestAnimationFrame(()=>{$("mtr").style.width="92%";});},
+   ()=>center("resign","LETTER OF RESIGNATION",`Dear teammates,<br>Effective immediately, I resign from defending.<br>I will be pursuing other opportunities, mainly attacking our own net.<br><br>Sincerely,<br>benged`),
+  ];
+  const k=line(F.map((_,i)=>String(i)),"og");
+  enqueue({pri:9,ttl:15000,run:async cut=>{SFX.siren();F[+k]();await hold(6500,cut);}});
+}
+
+/* ---------- demos: obituary while he respawns, tickets for the ones he hands out ---------- */
+function demoed(e){
+  S.demoed++;addDebris();snapEars();SFX.thud();job(pick(["IN THE SHOP","PEDESTRIAN","AWAITING PAROLE","UNINSURED"]));
+  const by=e.attacker_team===1?"an ORANGE car":e.attacker_team===0?"a BLUE car":"someone";
+  const F=[
+   ()=>center("obit","OBITUARY",`In loving memory of benged's car.<br>It boosted, it whiffed, it was loved.<br>Taken from us by ${by}.<br><i>In lieu of flowers, please send boost.</i>`,`DEMOLITIONS SURVIVED TONIGHT: ${S.demoed}`),
+   ()=>center("claim",`INSURANCE CLAIM #${1000+S.demoed}`,`Cause of loss: demolition<br>Status: <b style="color:#b10000">DENIED</b><br>Reason: “driver was clearly asking for it.”`,`CLAIMS FILED TONIGHT: ${S.demoed}`),
+   ()=>{center("gofund","GoFundMe · Help benged rebuild his car",`<b>$${3*S.demoed} raised</b> of $40,000 goal<div class="meter"><i id="mtr"></i></div>${S.demoed} donation${S.demoed>1?"s":""} · last donor: his own teammate, $0`);requestAnimationFrame(()=>{$("mtr").style.width=Math.min(9,.4*S.demoed)+"%";});},
+   ()=>center("standby","BNSN",`PLEASE STAND BY<br><span style="font-size:24px">WE ARE EXPERIENCING TECHNICAL DIFFICULTIES</span>`),
+   ()=>center("chalk","CRIME SCENE · DO NOT CROSS",`A chalk outline in the shape of an Octane.<br>Witnesses describe the suspect as “${by}, going very fast.”`,`CASE #${S.demoed} · NO LEADS`),
+  ];
+  const k=line(F.map((_,i)=>String(i)),"demo");
+  respawnUntil=performance.now()+3300;
+  enqueue({pri:8,ttl:3200,respawn:true,run:async cut=>{F[+k]();await hold(3000,()=>false);}});
+}
+function demoGiven(e){
+  S.demosGiven++;S.lastDemoGiven=performance.now();snapEars();
+  const F=[
+   ()=>center("ticket",`CITATION #${S.demosGiven}`,`Offense: parked an opponent illegally.<br>Fine: $0.00<br>Remorse: none.`,"BNSN TRAFFIC DIVISION"),
+   ()=>center("ticket","POLICE REPORT",`Suspect fled the scene at supersonic speed.<br>Victim described only as “a car that used to be there.”`,`INCIDENTS TONIGHT: ${S.demosGiven}`),
+   ()=>center("ticket","NOISE COMPLAINT",`Neighbours report a loud explosion and a man laughing.<br>Officers have decided not to get involved.`,`DEMOS HANDED OUT: ${S.demosGiven}`),
+  ];
+  const k=line(F.map((_,i)=>String(i)),"dg");
+  enqueue({pri:3,ttl:15000,run:async cut=>{SFX.ticket();F[+k]();await hold(3500,cut);}});
+}
+
+/* ---------- saves: the cheap tick, epic ones get a card ---------- */
+function save(e){
+  S.saves++;
+  if(e.epic){enqueue({pri:4,ttl:15000,run:async cut=>{center("claim","EPIC SAVE · STRUCTURAL REPORT",`The Wall of Benged has been inspected and is, somehow, still standing.<br>Bricks laid tonight: <b>${S.saves}</b>`,"BNSN BUILDING DEPARTMENT");SFX.sting();await hold(3500,cut);}});job("THE WALL");}
+  else if(!S.live)tick("SAVE · "+S.saves+" TONIGHT");
+}
+
+/* ---------- end of match: the Sandler saga ---------- */
+async function saga(e){
+  const st=e.streak,won=e.won,margin=Math.abs((e.my_score||0)-(e.their_score||0));
+  const sg=$("saga"),fr=$("sFrame");
+  let chap,cap,sub,img=null,snd=null,cls="",note="";
+  if(won){
+    snd="assets/victory.mp3";img="assets/victory.png";cls="win";
+    if(S.prevStreak<=-3){chap="A NEW CHAPTER";cap="SANDLER RETURNS";sub=`After ${-S.prevStreak} straight losses, he answered the phone.`;}
+    else if(st>=4){chap=`WIN STREAK ${st}`;cap="UNSTOPPABLE";sub="The choir has been booked. Somebody stop him.";}
+    else if(st===3){chap="WIN STREAK 3";cap="THREE IN A ROW";sub="Fireworks were approved by the city council.";}
+    else if(st===2){chap="WIN STREAK 2";cap="BACK TO BACK";sub="The band has arrived.";}
+    else{chap="FINAL";cap="VICTORY";sub=margin>=3?"That wasn't a match, that was a demonstration.":e.ot?"Overtime. Hearts were tested.":"Tonight: "+e.wins+"-"+e.losses;}
+  }else{
+    snd="assets/defeat.mp3";img="assets/defeat.png";
+    if(st<=-4){chap=`LOSS ${-st}`;cls="empty";img=null;cap="NO ANSWER";sub="";note="Sandler has stopped<br>returning our calls.<br><br><span style='font-size:22px;opacity:.7'>You have reached the voicemail of Adam. Please do not leave a message.</span>";}
+    else if(st===-3){chap="LOSS 3";cls="funeral";cap="WE GATHER HERE TODAY";sub="To remember tonight's MMR.";}
+    else if(st===-2){chap="LOSS 2";cls="rain";cap="IT'S RAINING NOW TOO";sub="Of course it is.";}
+    else{chap="FINAL";cap="DEFEAT";sub=margin>=3?"That was a crime scene.":margin===1?"So close. So sad.":e.ot?"Lost in overtime. Pain.":"Tonight: "+e.wins+"-"+e.losses;}
+  }
+  S.prevStreak=st;
+  enqueue({pri:10,ttl:20000,run:async cut=>{
+    $("sChap").textContent=chap+" · TONIGHT "+e.wins+"-"+e.losses;$("sCap").textContent=cap;$("sSub").textContent=sub;
+    fr.innerHTML=note;
+    if(img){const im=new Image();im.src=img;im.onerror=()=>im.remove();fr.appendChild(im);}
+    sg.className="card on "+cls;
+    if(won){confetti(won&&st>=3?260:160);}
+    if(snd&&!(await playFile(snd)))(won?SFX.sting:SFX.shame)();
+    await hold(9000,cut);
+  }});
+}
+
+/* ================= events from Benged Network ================= */
+const H={
+  hello(e){if(S.session&&S.session!==e.session){location.reload();return;}S.session=e.session;},
+  reset(){location.reload();},
+  rl_team(e){setTeam(e.team);},
+  rl_score(e){if(e.my_team!=null&&e.my_team!==S.myTeam)setTeam(e.my_team);S.score=[e.blue,e.orange];S.clock=e.clock;S.ot=e.ot;S.inMatch=true;},
+  rl_match(e){if(e.phase==="created"){S.inMatch=true;S.live=false;}if(e.phase==="left"){S.inMatch=false;S.live=false;cutAll();}},
+  rl_dead(){goDead();},
+  rl_live(){goLive();},
+  rl_replay_ending(){/* ball exploded in the replay: let the current card finish, queue nothing new */},
+  rl_replay_end(){},
+  rl_goal(e){
+    goDead();snapEars();
+    if(e.my_team!=null&&e.my_team!==S.myTeam)setTeam(e.my_team);
+    if(e.own_goal){ownGoal(e);return;}
+    if(e.refund)refundCard();
+    if(e.mine&&e.scorer_me){S.goals++;clearDebris();if(S.otw){S.otw=false;$("tv").classList.remove("otw");}job(pick(["GOAL SCORER (UNVERIFIED)","TOP SCORER (THIS MINUTE)","STRIKER","CLOSER"]),true);}
+    goalCard(e);
+  },
+  rl_demo(e){if(e.victim_me)demoed(e);else if(e.attacker_me)demoGiven(e);},
+  rl_save(e){save(e);},
+  rl_crossbar(e){if(e.me&&!S.live)tick("CLANG · THE CROSSBAR REMEMBERS");},
+  rl_match_end(e){goDead();if(e.won==null)return;S.wins=e.wins;S.losses=e.losses;S.streak=e.streak;mood();saga(e);},
+};
+S.prevStreak=0;   /* (after a reload the first result just starts the story again) */
+function connect(){
+  const ws=new WebSocket((location.protocol==="https:"?"wss://":"ws://")+location.host+"/ws");
+  ws.onopen=()=>{document.body.classList.remove("offline");ws.send(JSON.stringify({role:"overlay"}));};
+  ws.onclose=()=>{document.body.classList.add("offline");setTimeout(connect,2000);};
+  ws.onmessage=m=>{let e;try{e=JSON.parse(m.data)}catch(_){return}const f=H[e.type];if(f)try{f(e)}catch(err){console.error(err)}};
+}
+if(location.protocol.startsWith("http"))connect();
+setTeam(0);mood();
+/* previews in a smaller window: shrink the 1920x1080 stage to fit (OBS shows it 1:1) */
+function fit(){const k=Math.min(1,innerWidth/1920,innerHeight/1080);const st=$("stage");st.style.transformOrigin="0 0";st.style.transform=k<1?`scale(${k})`:"";}
+addEventListener("resize",fit);fit();
+</script>
+</body>
+</html>
