@@ -900,7 +900,8 @@ function loop(now){
  else ch.classList.remove('on');
  acc.sample+=rdt;if(acc.sample>.25){acc.sample=0;if(!LIVE||S.act==='flying'){S.fdr.push([S.spd,S.agl]);if(S.fdr.length>150)S.fdr.shift();}
   S.money.push([S.wallet-S.startWallet,ROLES.reduce((s,k)=>s+S.xp[k],0)]);if(S.money.length>150)S.money.shift();}
- render(e);shopRender();stackRight();fxStep(rdt);
+ if(!LIVE||now-(S._rt||0)>80){S._rt=now;render(e);shopRender();stackRight();}
+ if(!LIVE||parts.length||S.fxDirty||S.lifeKills>=3){fxStep(rdt);S.fxDirty=parts.length>0;}
 }
 function switchHost(m){
  if(m===S.host)return;const t=S.gt,old=S.host,stint=S.stint,dur=t-S.hostSince;
@@ -1253,6 +1254,7 @@ S.startWallet=S.wallet;S.low=0;S.revivedAt=-999;
    if(e.amount>0){let role=XPROLE[k];if(k==='assist')role=t-S.flyLast<120?'PILOT':'SUPPORT';
     if(k==='supplies'&&flying)role='PILOT';
     if(k==='kill')role=(S.lastKill&&S.lastKill.d>=100)?'RECON':'ASSAULT';
+    if(k==='other')role=(S.host==='combat'&&S.act==='sniping')?'RECON':(CH[S.host].role||'ASSAULT');   /* unknown line: the channel he's on */
     if(role){addXP(role,e.amount);drawRadar(false);}}
    /* six-role XP: the real XP number from the feed (money-only lines count a tenth of the $) */
 

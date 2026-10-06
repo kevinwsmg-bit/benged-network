@@ -59,6 +59,18 @@ class Templates:
         self.stretch = None                  # learned sideways stretch of his picture (None = try all)
         self.votes = {}
         self.calls = 0
+        # speed: once a label has matched well, only its matching size/look is tried on most calls; the
+        # full search (every size x stretch x look, ~10x the work) runs on every 8th call (other setups,
+        # settings changes)
+        self.known = {}                      # name -> candidate indices that matched >= 0.8
+        self.ncalls = {}
+        self._seed()
+
+    def _seed(self):
+        """Start with the actual-size, unstretched candidates (the _2/_3 looks are cut from benged's own
+        1440x900 HUD, so on his PC that's what matches); the full search still runs every 8th call."""
+        for name, cands in self.t.items():
+            self.known[name] = [i for i, (s, v, xs, _) in enumerate(cands) if s == 1.0 and xs == 1.0][-3:]
 
     def locate(self, gray, name, stop=None):
         """Best match of the label inside its home region:
@@ -66,16 +78,23 @@ class Templates:
         if name not in self.t:
             return 0.0, 0, 0, 1.0, 0, 1.0
         self.calls += 1
-        if self.calls % 600 == 0:            # now and then look at every stretch again (settings change)
+        if self.calls % 6000 == 0:           # every few minutes look at every stretch again (settings change)
             self.stretch, self.votes = None, {}
+            self._seed()
         h, w = gray.shape
         x0, y0, x1, y1 = REGIONS[HOME[name]]
         ox, oy = int(x0 * w), int(y0 * h)
         roi = gray[oy:int(y1 * h), ox:int(x1 * w)]
         best, best_i = (0.0, 0, 0, 1.0, 0, 1.0), None
         cands = self.t[name]
-        first = self.pref.get(name, 0)
-        for i in [first] + [j for j in range(len(cands)) if j != first]:
+        known = self.known.get(name, [])
+        n = self.ncalls[name] = self.ncalls.get(name, 0) + 1
+        order = list(known)
+        if not known or n % 8 == 0:
+            first = self.pref.get(name, 0)
+            order += [j for j in [first] + list(range(len(cands))) if j not in order]
+            order = list(dict.fromkeys(order))
+        for i in order:
             s, v, xs, tpl = cands[i]
             if self.stretch is not None and xs != self.stretch:
                 continue
@@ -89,6 +108,8 @@ class Templates:
                 break
         if best_i is not None and best[0] >= 0.7:
             self.pref[name] = best_i
+        if best_i is not None and best[0] >= 0.8 and best_i not in known:
+            self.known[name] = ([best_i] + known)[:3]
         if best_i is not None and best[0] >= 0.85 and self.stretch is None:
             xs = cands[best_i][2]
             self.votes[xs] = self.votes.get(xs, 0) + 1

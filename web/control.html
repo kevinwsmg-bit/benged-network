@@ -167,7 +167,7 @@ async function poll(){try{const s=await api('/api/status');
   const sc=s.pilot_check||{};$('scores').textContent='Detector scores (need 0.80): '+Object.keys(SC).map(k=>SC[k]+' '+(sc[k]!=null?sc[k].toFixed(2):'—')).join(' · ');
   $('fps').textContent=s.fps;$('ms').textContent=s.ms;$('err').textContent=s.error||'';
   if(document.activeElement!==$('names'))$('names').value=s.names.join(', ');$('rb').checked=s.replay_buffer;
-  if(s.frames)$('shot').style.backgroundImage=`url(/api/snapshot.jpg?${Date.now()})`,$('shot').textContent='';
+  if(s.frames&&!document.hidden)$('shot').style.backgroundImage=`url(/api/snapshot.jpg?${Date.now()})`,$('shot').textContent='';
  }catch(e){$('obsTxt').textContent='server offline';$('obsPill').className='pill bad';}
  setTimeout(poll,1500);}
 function line(e){const d=document.createElement('div');const t=new Date().toLocaleTimeString();

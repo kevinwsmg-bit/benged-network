@@ -1,2 +1,2 @@
-2.0.0
-Big update from benged's first trial stream: XP now tracks every reward line (building, recon, medic, pilot), kills register faster and count doubles, no more random level-ups or killstreaks, death screen 15 s, Shotgun shows your passenger seat, pilot supply deliveries, real cause-of-death pie, and a stream log to send Kevin.
+2.0.1
+Lighter on the game: the reader runs at low priority, checks the screen 2 times a second instead of 3, only tries the HUD sizes that match your screen, skips money/text it already read, and the overlay redraws ~12x a second instead of every frame. Also: XP from reward lines it can't name still counts (to the channel you're on), and misread giant XP numbers are fixed.

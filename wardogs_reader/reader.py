@@ -168,7 +168,9 @@ class Reader:
         self.cf_lines = CachedLines(max_w=330, max_new=5)
         self._cf, self._cf_raw, self._cf_seen = [], None, -999
         self._cf_total, self._cf_tcand, self._cf_kind = 0, None, None
-        self.kf_lines = CachedLines(max_w=470, max_new=3)
+        self.kf_lines = CachedLines(max_w=470, max_new=2)
+        self.pop_lines = CachedLines(max_new=3)
+        self.seat_lines = CachedLines(max_new=3)
         self._kf_seen = []                    # kill-feed lines with his name now on screen
         self.state = dict(pilot=False, vehicle=False, hammer=False, medkit=False, scoped=False, hurt=False, screen="none")
         self._pilot_last = self._vehicle_last = self._hammer_last = self._medkit_last = -999
@@ -267,9 +269,9 @@ class Reader:
             if self._due("xp", 0.5):
                 self._read_xp(frame, ev)
             # (the bottom reward list isn't read any more: the top-right feed carries the same rewards)
-            if self._due("popup", 0.25):
+            if self._due("popup", 0.5):
                 self._read_popup(frame, ev)
-            if (self.state["vehicle"] or self.state["pilot"]) and self._due("seats", 2.0):
+            if (self.state["vehicle"] or self.state["pilot"]) and self._due("seats", 4.0):
                 self._read_seats(frame, ev)
             if self._gauges and self._due("gauges", 1.0):
                 self._read_gauges(frame, ev)
@@ -279,7 +281,7 @@ class Reader:
             self._hurt_frames = self._hurt_frames + 1 if self._vignette(frame) > 34 else 0
             self.state["hurt"] = self._hurt_frames >= 2
             self.state["scoped"] = self._scope(gray)
-        if self._due("kf", 0.5):
+        if self._due("kf", 0.75):
             self._read_killfeed(frame, ev)
 
         self.state["pilot"] = t - self._pilot_last < 4.0
@@ -305,7 +307,7 @@ class Reader:
             screen = "down"
         elif self.tpl.seen(gray, "toggle_legend"):
             screen = "map"
-        elif self._cash_miss >= 2 and self._due("loading", 2.0):
+        elif self._cash_miss >= 2 and self._due("loading", 4.0):
             ld = " ".join(norm(x[0]) for x in read_lines(crop(frame, "loading")))
             if "WARDOGS" in ld:
                 screen = "loading"
@@ -352,6 +354,11 @@ class Reader:
         The match box's minus sign sometimes doesn't read; its red marker means negative."""
         h, w = frame.shape[:2]
         roi = frame[0:int(0.055 * h), int(0.72 * w):w]
+        # the boxes rarely change: skip the (slow) box finder while the strip looks the same as last time
+        small = cv2.resize(roi, (96, 10), interpolation=cv2.INTER_AREA).astype(np.int16)
+        last = getattr(self, "_mb_last", None)
+        if last is not None and last[0].shape == small.shape and float(np.abs(small - last[0]).mean()) < 2.0:
+            return last[1]
         up = cv2.resize(roi, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
         vals = []
         for x, t, c in read_boxes(up):
@@ -360,13 +367,15 @@ class Reader:
             if m and c > 0.5:
                 vals.append((x / 2, m.group(1) == "-", int(re.sub(r"[.,]", "", m.group(2)))))
         if len(vals) < 2:
+            self._mb_last = (small, None)
             return None
         (x0, neg, match), (x1, _, wallet) = vals[-2], vals[-1]
         if not neg:
             seg = roi[:, int(x0):int(x1)]
             b, g, r = (seg[:, :, i].astype(int) for i in range(3))
             neg = int(((r > 150) & (g < 90) & (b < 90)).sum()) > 12
-        return (-match if neg else match), wallet
+        self._mb_last = (small, ((-match if neg else match), wallet))
+        return self._mb_last[1]
 
     def _read_cart(self, frame, ev):
         """Vendor cart total from the green Purchase button ("$350"); two matching reads."""
@@ -476,6 +485,12 @@ class Reader:
             self._cf_tcand = total
 
 
+    # most XP one line can give (seen: kill 250-350, headshot 275, shutdown 300, revive 250, heal 50,
+    # passenger 100, deployment 50, supplies 500-600, building 1-10): a bigger number is a misread
+    XP_MAX = dict(kill=800, headshot=800, shutdown=800, kill_assist=600, build=60, build_complete=60,
+                  heal=300, revive=600, revive_assist=600, spot=300, spot_destroy=400, zone=300,
+                  zone_enter=300, passenger=400, deploy=300, supplies=1500)
+
     def _read_xp(self, frame, ev):
         """Top-right reward feed: one event for each line's money and one for its XP (see feed.py)."""
         if self.feed_sx is None and self.tpl.stretch:
@@ -485,8 +500,14 @@ class Reader:
             if any(i in words for i in IGNORE):
                 continue
             if kind is None:
-                ev.append(dict(type="line", region="xpfeed", text=text))
-                continue
+                ev.append(dict(type="line", region="xpfeed", text=text))   # (session log: new reward names)
+                if unit != "xp" or amt > 300:
+                    continue
+                kind = "other"                      # unknown or unreadable words: still count the XP
+            if unit == "xp" and amt > self.XP_MAX.get(kind, 2000):
+                amt = amt % 1000 if amt % 1000 <= self.XP_MAX.get(kind, 2000) else 0   # "1250XP" = "|250XP"
+                if not amt:
+                    continue
             ev.append(dict(type="xp", kind=kind, amount=amt if unit == "xp" else 0,
                            money=amt if unit == "$" else 0, text=text, line=line))
 
@@ -501,7 +522,7 @@ class Reader:
         if int(stroke_mask(img).sum()) < 120:
             self._pop_gone()
             return
-        lines = read_lines(img)
+        lines = self.pop_lines.read(img)              # lines already read are reused (cockpit, scope text)
         txt = " ".join(norm(x[0]) for x in lines)
         # ("TONIGHT": our own overlay's kill card, only ever seen when testing on stream video)
         # a kill always says KILL CONFIRMED (a bare "$2,000" can be a price on the FOB supplies menu)
@@ -575,7 +596,7 @@ class Reader:
         """Who's in the vehicle: the list under "UNLOCKED [L]" in the control hints, in seat order
         ("[KA] Benged", "iamahumam", "TTV_QuantumLag", then the vehicle name "MH-6"). Shotgun = the
         name right after his. Sent when two reads agree."""
-        lines = read_lines(crop(frame, "hints"))
+        lines = self.seat_lines.read(crop(frame, "hints"))
         names, after = [], False
         for raw, conf, _ in lines:
             n = norm(raw)

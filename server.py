@@ -39,7 +39,7 @@ DEFAULTS = {
     "obs_password": "",
     "source": "",              # name of the WARDOGS game capture source in OBS
     "names": ["Benged"],       # in-game names to treat as him (add alt accounts here)
-    "fps": 3,
+    "fps": 2,
     "port": 8765,
     "replay_buffer": False,    # save OBS replay buffer on big moments (crash, long shot, 3+ streak)
 }
@@ -50,7 +50,22 @@ def load_config():
     if os.path.exists(CONFIG_PATH):
         with open(CONFIG_PATH, encoding="utf-8") as f:
             cfg.update(json.load(f))
+    # 2 checks a second is plenty (every event lasts several seconds) and halves the screenshots OBS
+    # has to make; older installs saved 3
+    cfg["fps"] = min(float(cfg.get("fps") or 2), 2)
     return cfg
+
+
+def go_easy_on_the_game():
+    """Run below normal priority so WARDOGS and OBS always get the CPU first; we only need leftovers."""
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            k = ctypes.windll.kernel32
+            k.GetCurrentProcess.restype = ctypes.c_void_p      # a 64-bit handle (plain int would mangle it)
+            k.SetPriorityClass(ctypes.c_void_p(k.GetCurrentProcess()), 0x4000)   # BELOW_NORMAL
+        except Exception:
+            pass
 
 
 def save_config(cfg):
@@ -401,6 +416,7 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--replay", help="folder of 1280x720 .jpg frames to play instead of OBS (testing)")
     args = ap.parse_args()
+    go_easy_on_the_game()
     cfg = load_config()
     if not os.path.exists(CONFIG_PATH):
         save_config(cfg)
