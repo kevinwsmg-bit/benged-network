@@ -1,2 +1,2 @@
-2.0.1
-Lighter on the game: the reader runs at low priority, checks the screen 2 times a second instead of 3, only tries the HUD sizes that match your screen, skips money/text it already read, and the overlay redraws ~12x a second instead of every frame. Also: XP from reward lines it can't name still counts (to the channel you're on), and misread giant XP numbers are fixed.
+2.1.0
+benged's 10-06 list: DEFEAT / VICTORY screens pop your reaction picture with a sound, Shotgun finally reads your passenger (the seat list sits lower in trucks), alive time on the death screen counts from your actual spawn, 6 different career-change posts, square driver facecam, recon TARGETS SPOTTED counter (re-spots included) in the top bar, and better kill-distance reading for Longest Shot.

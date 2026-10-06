@@ -18,6 +18,9 @@ REGIONS = {
     "popup": (0.40, 0.55, 0.60, 0.76),
     # right edge: vehicle / heli control hints (COLLECTIVE LIFT = pilot seat)
     "hints": (0.78, 0.38, 1.0, 0.78),
+    # right edge: the vehicle's seat list ("UNLOCKED [L]", then who sits where, then the vehicle name).
+    # It hangs at the bottom of the control hints, so it sits lower in vehicles with fewer controls
+    "seats": (0.78, 0.36, 1.0, 0.93),
     # bottom-right: equipped item name ("LARGE HAMMER // BUILD SUPPLIES" = building)
     "weapon": (0.78, 0.80, 1.0, 0.89),
     # vendor screens: the green Purchase button at the bottom right shows the cart total ("$350")

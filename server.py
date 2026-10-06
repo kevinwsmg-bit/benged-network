@@ -396,6 +396,8 @@ def make_app(cfg, replay=None):
 
     app.router.add_get("/", index)
     app.router.add_get("/overlay", overlay)
+    os.makedirs(os.path.join(HERE, "web", "assets"), exist_ok=True)
+    app.router.add_static("/assets", os.path.join(HERE, "web", "assets"))   # pictures + sounds the overlay uses
     app.router.add_get("/ws", ws_handler)
     app.router.add_get("/api/status", status)
     app.router.add_get("/api/sources", sources)

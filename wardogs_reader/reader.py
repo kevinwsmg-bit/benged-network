@@ -68,7 +68,7 @@ XP_RULES = [
     ("LEVEL", "level"),
 ]
 MONEY_RE = re.compile(r"(-)?\s*[S$]\s?(\d{1,3}(?:[.,]\d{3})+|\d{1,7})")
-DIST_RE = re.compile(r"\[?\s*(\d{1,3})\s*[mM]\s*\]?")
+DIST_RE = re.compile(r"[\[(|lI]\s*([\dOoIlSB]{1,3})\s*(?:[mM]|rn|n)\s*[\])|lI1]|\[?\s*(\d{1,3})\s*[mM]\s*\]?")
 XP_RE = re.compile(r"(\d{1,4})\s*XP", re.I)
 
 
@@ -168,9 +168,9 @@ class Reader:
         self.cf_lines = CachedLines(max_w=330, max_new=5)
         self._cf, self._cf_raw, self._cf_seen = [], None, -999
         self._cf_total, self._cf_tcand, self._cf_kind = 0, None, None
-        self.kf_lines = CachedLines(max_w=470, max_new=2)
+        self.kf_lines = CachedLines(max_w=470, max_new=4)
         self.pop_lines = CachedLines(max_new=3)
-        self.seat_lines = CachedLines(max_new=3)
+        self.seat_lines = CachedLines(max_new=10, split=19, min_density=0.02, max_density=0.6)
         self._kf_seen = []                    # kill-feed lines with his name now on screen
         self.state = dict(pilot=False, vehicle=False, hammer=False, medkit=False, scoped=False, hurt=False, screen="none")
         self._pilot_last = self._vehicle_last = self._hammer_last = self._medkit_last = -999
@@ -281,6 +281,8 @@ class Reader:
             self._hurt_frames = self._hurt_frames + 1 if self._vignette(frame) > 34 else 0
             self.state["hurt"] = self._hurt_frames >= 2
             self.state["scoped"] = self._scope(gray)
+        if self._due("endscreen", 1.0):
+            self._read_endscreen(frame, ev)
         if self._due("kf", 0.75):
             self._read_killfeed(frame, ev)
 
@@ -551,6 +553,20 @@ class Reader:
             self._pop.update(total=total, kills=self._pop["kills"] + 1)
             self._kill_signal("popup", None, "")
 
+    def _read_endscreen(self, frame, ev):
+        """End of a match: a huge DEFEAT / VICTORY across the top centre (over the team scores).
+        Read small (the letters are ~70 px tall) and only when there's big bright text there."""
+        h, w = frame.shape[:2]
+        c = frame[int(0.10 * h):int(0.30 * h), int(0.30 * w):int(0.70 * w)]
+        small = cv2.resize(c, (c.shape[1] // 3, c.shape[0] // 3), interpolation=cv2.INTER_AREA)
+        if int((small.min(axis=2) > 200).sum()) < 150:
+            return
+        word = norm(read_line(small)[0])
+        res = "defeat" if "DEFEAT" in word else "victory" if "VICTOR" in word else None
+        if res and self.t - getattr(self, "_end_last", -999) > 90:
+            self._end_last = self.t
+            ev.append(dict(type="match_end", result=res))
+
     def _pop_gone(self):
         if self._pop is not None and self.t - self._pop_seen > 2.5:     # it fades / misreads for a moment
             self._pop = None
@@ -570,7 +586,7 @@ class Reader:
             d = DIST_RE.search(raw)
             if not d:
                 continue
-            dist = int(d.group(1))
+            dist = int(_digits(d.group(1) or d.group(2)))
             left, right = raw[:d.start()], raw[d.end():]
             me_l, me_r = self._is_me(norm(left)), self._is_me(norm(right))
             other = norm(right if me_l else left)
@@ -596,7 +612,7 @@ class Reader:
         """Who's in the vehicle: the list under "UNLOCKED [L]" in the control hints, in seat order
         ("[KA] Benged", "iamahumam", "TTV_QuantumLag", then the vehicle name "MH-6"). Shotgun = the
         name right after his. Sent when two reads agree."""
-        lines = self.seat_lines.read(crop(frame, "hints"))
+        lines = sorted(self.seat_lines.read(crop(frame, "seats")), key=lambda x: x[2][0])   # top to bottom
         names, after = [], False
         for raw, conf, _ in lines:
             n = norm(raw)
@@ -610,7 +626,8 @@ class Reader:
         me = next((i for i, x in enumerate(names) if self._is_me(norm(x))), None)
         if me is None:
             return
-        shot = names[me + 1] if me + 1 < len(names) else ""
+        others = [x for i, x in enumerate(names) if i != me]
+        shot = names[me + 1] if me + 1 < len(names) else (others[0] if others else "")
         shot = re.sub(r"^[^A-Za-z0-9\[]+", "", shot)
         if shot == getattr(self, "_shot_cand", None) and shot != getattr(self, "_shot", None):
             self._shot = shot

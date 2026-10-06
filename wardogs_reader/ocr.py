@@ -43,8 +43,17 @@ def stroke_mask(img, thresh=38):
     return (th > thresh).astype(np.uint8)
 
 
-def find_lines(img, min_h=6, max_h=30, min_px=6, pad=3):
-    """Return (y0, y1, x0, x1) boxes for text lines inside a region crop."""
+def _split(rows, y, y2, split):
+    """Cut a band taller than `split` rows (two lines touching) at its emptiest row, recursively."""
+    if split is None or y2 - y <= split:
+        return [(y, y2)]
+    mid = y + 5 + int(np.argmin(rows[y + 5:y2 - 5]))
+    return _split(rows, y, mid, split) + _split(rows, mid + 1, y2, split)
+
+
+def find_lines(img, min_h=6, max_h=30, min_px=6, pad=3, split=None):
+    """Return (y0, y1, x0, x1) boxes for text lines inside a region crop.
+    split: cut bands taller than this many rows (lines packed close together, e.g. seat lists)."""
     m = stroke_mask(img)
     rows = m.sum(axis=1)
     on = rows >= min_px
@@ -55,6 +64,15 @@ def find_lines(img, min_h=6, max_h=30, min_px=6, pad=3):
             y2 = y
             while y2 < H and on[y2]:
                 y2 += 1
+            for (ya, yb) in _split(rows, y, y2, split):
+                if min_h <= (yb - ya) <= max_h:
+                    band = m[ya:yb]
+                    cols = np.where(band.sum(axis=0) > 0)[0]
+                    if len(cols):
+                        boxes.append((max(0, ya - pad), min(H, yb + pad),
+                                      max(0, cols[0] - pad), min(img.shape[1], cols[-1] + pad)))
+            y = y2
+            continue
             if min_h <= (y2 - y) <= max_h:
                 band = m[y:y2]
                 cols = np.where(band.sum(axis=0) > 0)[0]
@@ -99,7 +117,8 @@ class CachedLines:
     Bands that do not look like text (too sparse, too dense, too wide) are skipped.
     """
 
-    def __init__(self, max_w=None, min_density=0.06, max_density=0.45, max_new=4):
+    def __init__(self, max_w=None, min_density=0.06, max_density=0.45, max_new=4, split=None):
+        self.split = split
         self.cache = {}
         self.max_w = max_w
         self.min_d, self.max_d = min_density, max_density
@@ -114,7 +133,7 @@ class CachedLines:
     def read(self, img):
         out, new = [], 0
         m_all = stroke_mask(img)
-        for (y0, y1, x0, x1) in find_lines(img):
+        for (y0, y1, x0, x1) in find_lines(img, split=self.split):
             if self.max_w and (x1 - x0) > self.max_w:
                 continue
             m = m_all[y0:y1, x0:x1]

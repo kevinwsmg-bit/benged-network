@@ -198,6 +198,18 @@ header.top p{margin:0;color:var(--muted);max-width:74ch;line-height:1.45}
 .lbox{position:absolute;left:0;right:0;height:92px;background:#000;transform:scaleY(0);transition:transform .5s}
 .lbox.t{top:0;transform-origin:top}.lbox.b{bottom:0;transform-origin:bottom}
 .stage[data-act="sniping"][data-mode="combat"] .lbox{transform:scaleY(1)}
+/* recon: spotted-targets counter in the top letterbox bar */
+.spotc{position:absolute;right:60px;top:20px;display:flex;align-items:baseline;gap:14px;color:#e9f5d9;font:600 18px var(--f-ui)}
+.spotc small{font:400 20px var(--f-stamp);letter-spacing:.14em;color:#d8c27a}
+.spotc b{font:400 46px/1 var(--f-stamp);color:#b6f36b}
+.spotc span{opacity:.75;font-size:15px}
+/* end of match: benged's VICTORY / DEFEAT reaction picture pops in with its sound */
+.endshow{z-index:40;left:380px;bottom:96px;height:540px;width:900px;display:flex;align-items:flex-end;justify-content:flex-start;pointer-events:none;opacity:0;transform:scale(.4) rotate(-8deg);transform-origin:bottom left}
+.endshow img{max-height:100%;max-width:100%;filter:drop-shadow(0 12px 30px rgba(0,0,0,.7))}
+.endshow.go{animation:endpop 9s cubic-bezier(.3,1.5,.5,1) forwards}
+.endshow.defeat.go img{animation:endshake .5s 1s 4}
+@keyframes endpop{0%{opacity:0;transform:scale(.4) rotate(-8deg)}8%{opacity:1;transform:scale(1.05) rotate(2deg)}12%{transform:scale(1) rotate(0)}88%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(.9)}}
+@keyframes endshake{0%,100%{transform:translateX(0)}25%{transform:translateX(-10px) rotate(-2deg)}75%{transform:translateX(10px) rotate(2deg)}}
 .doc{position:absolute;left:60px;bottom:26px;font:italic 500 24px var(--f-ui);color:#e9f5d9}
 .doc b{font-style:normal;font-family:var(--f-stamp);font-weight:400;letter-spacing:.14em;margin-right:14px;color:#d8c27a}
 .narr{position:absolute;left:470px;right:520px;bottom:190px;text-align:center;font:italic 500 25px/1.35 var(--f-ui);color:#e9f5d9;text-shadow:0 2px 8px #000;opacity:0;transition:opacity .5s}
@@ -213,7 +225,7 @@ header.top p{margin:0;color:var(--muted);max-width:74ch;line-height:1.45}
 .stage[data-mode="pilot"] .cam{filter:sepia(.5) hue-rotate(60deg) saturate(1.3)}
 .stage[data-mode="pilot"] .cam::before{background:repeating-linear-gradient(0deg,rgba(0,0,0,.35) 0 2px,transparent 2px 4px);box-shadow:inset 0 0 40px rgba(124,255,107,.5)}
 .stage[data-mode="builder"] .cam{border:10px solid;border-image:repeating-linear-gradient(-45deg,#ffb000 0 14px,#141414 14px 28px) 10}
-.stage[data-mode="driver"] .cam{border:10px solid #232323;border-radius:90px/60px;box-shadow:0 0 0 3px #777}
+/* driver: same square frame as on foot (benged, 10-06) */
 .stage[data-mode="medic"] .cam{border:12px solid #eef3f1;border-radius:14px}
 .stage[data-act="sniping"][data-mode="combat"] .cam{border-radius:50%;filter:grayscale(.6) sepia(.3) hue-rotate(50deg)}
 
@@ -577,8 +589,9 @@ body.live.offline .livebadge{display:block}
         <!-- COMBAT -->
         <div class="fr fr-combat"><div class="scanl"></div><i class="corner a" style="--ch:#ff3b3b"></i><i class="corner b" style="--ch:#ff3b3b"></i><i class="corner c" style="--ch:#ff3b3b"></i><i class="corner d" style="--ch:#ff3b3b"></i>
           <div class="clabel"><i></i>LIVE · COMBAT</div><div class="threat"></div></div>
-        <div class="lbox t"></div><div class="lbox b"><div class="doc"><b>PLANET WARDOGS</b>scoped in · the tall grass</div></div>
+        <div class="lbox t"><div class="spotc"><small>TARGETS SPOTTED</small><b id="spotN">0</b><span id="spotR">incl. 0 re-spotted</span></div></div><div class="lbox b"><div class="doc"><b>PLANET WARDOGS</b>scoped in · the tall grass</div></div>
         <div class="narr" id="narr"></div>
+        <div class="abs endshow" id="endshow"><img id="endImg" alt="" onerror="this.style.display='none'"></div>
         <div class="flashred"></div>
 
         <div class="abs cam" id="cam"><div class="tag" id="camTag">WARDOG 1 · COMBAT</div></div>
@@ -881,7 +894,7 @@ function loop(now){
  if(a==='shopping')S.inter='shop';else if(S.inter==='shop')S.inter=null;
  if(S.inter==='dead'&&t>S.deadUntil){S.inter='deploy';S.deployUntil=t+70;renderEpisode();log('Loading screen → Episode Open');}
  if(a==='loading'&&S.inter!=='dead'){if(S.inter!=='deploy'){S.inter='deploy';renderEpisode();log('Loading screen detected → Episode Open');}S.deployUntil=t+70;}
- if(S.inter==='deploy'&&t>S.deployUntil){S.inter=null;if(S.act==='loading'||S.act==='dead')setAct('idle',true);S.lifeStart=t;S.lifeCash=0;}
+ if(S.inter==='deploy'&&t>S.deployUntil){S.inter=null;if(S.act==='loading'||S.act==='dead')setAct('idle',true);if(!LIVE)S.lifeStart=t;S.lifeCash=0;}
  if(S.inter==='shop'&&S.prevInter!=='shop')shopEnter();
  if(S.prevInter==='shop'&&S.inter!=='shop')shopLeave();
  if(S.prevInter&&!S.inter&&S.pendingFlip){S.pendingFlip=false;S.lastCard=t;flip(S.host);}
@@ -915,11 +928,29 @@ function switchHost(m){
  else toast('BACK TO '+CH[m].num+' · '+CH[m].name);
 }
 
+/* ---------- end of match: VICTORY / DEFEAT ---------- */
+function endShow(res){const el=$('endshow'),img=$('endImg');img.style.display='';img.src='assets/'+res+'.png';
+ el.className='abs endshow '+res;void el.offsetWidth;el.classList.add('go');
+ const a=new Audio('assets/'+res+'.mp3');a.volume=.9;
+ a.play().catch(()=>{if(res==='defeat'){[392,370,349,311].forEach((f,i)=>tone(f,i===3?.9:.32,'sawtooth',.09,i*.34));}
+  else{[523,659,784,1047,784,1047].forEach((f,i)=>tone(f,i>3?.35:.14,'square',.06,i*.12));}});   /* no sound file: built-in jingle */
+ log('Match over: '+res.toUpperCase());}
+
 /* ---------- transitions ---------- */
+/* career-move post when he changes channel: six versions, never the same one twice in a row */
+const LI_POSTS=[
+ (d,r,st,nw)=>'After an incredible '+d+' as '+r+' ('+st+'), I\'m thrilled to announce I\'m starting a new position as '+nw+'.',
+ (d,r,st,nw)=>'Personal news: after '+d+' as '+r+' ('+st+'), I\'ve decided to pursue other opportunities. Excited to join the team as '+nw+'!',
+ (d,r,st,nw)=>'I was let go from my role as '+r+' after '+d+' ('+st+'). HR called it "performance." I call it a pivot. Starting today: '+nw+'.',
+ (d,r,st,nw)=>'Agree? 👇 The best '+r+'s know when to walk away. '+d+'. '+st+'. No regrets. New chapter: '+nw+'.',
+ (d,r,st,nw)=>d+' as '+r+' taught me three things: 1) '+st+' 2) nobody reads these 3) I\'m now '+nw+'.',
+ (d,r,st,nw)=>'Humbled to share I have been transferred (against my will) from '+r+' to '+nw+' after '+d+' ('+st+'). Thoughts and prayers appreciated.',
+];
+function liPick(){let i;do{i=Math.floor(Math.random()*LI_POSTS.length);}while(i===S.liLast&&LI_POSTS.length>1);return i;}
 function linkedIn(old,m,dur,st){
  const parts=[];if(st.builds)parts.push(st.builds+' builds');parts.push(st.kills+' kills');if(st.revives)parts.push(st.revives+' revives');if(st.supply)parts.push(st.supply+' deliveries');if(st.crashes)parts.push(st.crashes+' crash'+(st.crashes>1?'es':''));
- const L=$('linked');L.innerHTML='<div class="who"><div class="av"></div><div><b>benged</b><small>'+CH[old].title+' · 1st</small></div></div>After an incredible '+fmtT(dur)+' as '+CH[old].title.split(' at ')[0]+' ('+parts.join(', ')+'), I\'m thrilled to announce I\'m starting a new position as <b>'+CH[m].title+'</b>.<div class="tagline">'+CH[m].hash+'</div>';
- L.style.display='none';void L.offsetWidth;L.style.display='block';clearTimeout(L._t);L._t=setTimeout(()=>L.style.display='none',3200);
+ const L=$('linked');L.innerHTML='<div class="who"><div class="av"></div><div><b>benged</b><small>'+CH[old].title+' · 1st</small></div></div>'+LI_POSTS[S.liLast=liPick()](fmtT(dur),CH[old].title.split(' at ')[0],parts.join(', '),'<b>'+CH[m].title+'</b>')+'<div class="tagline">'+CH[m].hash+'</div>';
+ L.style.display='none';void L.offsetWidth;L.style.display='block';clearTimeout(L._t);L._t=setTimeout(()=>L.style.display='none',6000);
 }
 let stTimer=null;
 function flip(m){
@@ -1149,7 +1180,7 @@ function render(e){
  $('bBuilt').textContent=S.totBuilds;const on=S.totBuilds%13;[...$('bpSvg').children].forEach((w,i)=>w.classList.toggle('on',i<on));$('prog').style.width=Math.round(on/12*100)+'%';$('fobPct').textContent='FOB '+Math.round(on/12*100)+'%';
  $('bWage').textContent=LIVE?money(S.buildCash.filter(x=>t-x[0]<=60).reduce((a,x)=>a+x[1],0))+'/min':'$'+(within(S.builds,60)*48)+'/min';$('bOsha').textContent=S.osha;
  $('mPat').textContent=S.totRev;$('mPay').textContent=money(LIVE?S.medCash:S.totRev*300);[...$('punch').children].forEach((p,i)=>p.classList.toggle('on',i<S.totRev%10));
- $('dTime').textContent=fmtT(S.driveTot);$('pDlv').textContent=S.pDlv||0;$('pPax').textContent=S.pax||0;
+ $('dTime').textContent=fmtT(S.driveTot);$('spotN').textContent=S.spots||0;$('spotR').textContent='incl. '+(S.respots||0)+' re-spotted';$('pDlv').textContent=S.pDlv||0;$('pPax').textContent=S.pax||0;
  if(S.act==='sniping'&&S.host==='combat'&&now-narrT>6500)narr(NARR[narrI++%NARR.length]);
  $('shopT').textContent='00:'+String(Math.max(0,42-Math.floor((now/1000)%43))).padStart(2,'0');
  // pilot HUD
@@ -1203,7 +1234,7 @@ $('demo').addEventListener('click',()=>{if(demoT.length){stopDemo();return;}
 
 /* ================= LIVE: events from the reader ================= */
 if(LIVE){
- S.sound=true;S.crashes=0;S.life=0;S.gotCash=false;S.spd=0;S.agl=0;S.buildCash=[];S.medCash=0;S.lifeW0=null;S.lines={};S.pDlv=0;S.pax=0;$('dShot').textContent='—';$('song').textContent='NOW PLAYING: benged — Supply Run (phonk remix) · WE’LL GET YOU THERE. PROBABLY.';
+ S.sound=true;S.crashes=0;S.life=0;S.gotCash=false;S.spd=0;S.agl=0;S.buildCash=[];S.medCash=0;S.lifeW0=null;S.lines={};S.pDlv=0;S.pax=0;S.spawnPending=true;S.spots=0;S.respots=0;$('dShot').textContent='—';$('song').textContent='NOW PLAYING: benged — Supply Run (phonk remix) · WE’LL GET YOU THERE. PROBABLY.';
  document.getElementById('jackL').innerHTML='EARNED<br>THIS STREAM';
  const XPROLE={build:'SUPPORT',build_complete:'SUPPORT',buildable_destroyed:'SUPPORT',fob_supplied:'SUPPORT',revive:'MEDIC',revive_assist:'MEDIC',heal:'MEDIC',supplies:'DRIVER',passenger:'PILOT',deploy:'PILOT',zone:'ASSAULT',zone_enter:'ASSAULT',wheels:'ASSAULT',kill_assist:'ASSAULT',headshot:'ASSAULT',shutdown:'ASSAULT',airtime:'DRIVER',spot:'RECON',spot_destroy:'RECON'};
 S.startWallet=S.wallet;S.low=0;S.revivedAt=-999;
@@ -1216,6 +1247,10 @@ S.startWallet=S.wallet;S.low=0;S.revivedAt=-999;
   setTimeout(()=>{$('bbox').style.display='none';},3800);}
  const H={
   state(e){
+   /* "alive" time on the death screen counts from when he actually spawned (first moment in game
+      after the stream started, a death or a new match), not from when the overlay loaded */
+   if(e.screen==='none'&&S.spawnPending){S.spawnPending=false;S.lifeStart=S.gt;}
+   if(e.screen==='loading')S.spawnPending=true;
    if(e.screen==='vendor'){setAct('shopping',true);return;}
    if(e.screen==='loading'){if(S.inter==='dead')S.inter=null;S.mk=S.md=S.ma=0;S.flightClean=0;S.buildTime=0;S.revLife=0;S.newLife=true;setAct('loading',true);return;}   /* new match */
    if(e.screen==='down'||e.screen==='map'||e.screen==='menu')return;
@@ -1243,7 +1278,7 @@ S.startWallet=S.wallet;S.low=0;S.revivedAt=-999;
   killed_by(e){S.killedBy={killer:e.killer,dist:e.dist,t:S.gt};if(S.inter==='dead'&&e.killer&&S.gt-(S.lastDown||-99)>2){$('cause').textContent=e.killer;if(e.dist)$('causeD').textContent=e.dist+' m · '+$('causeD').textContent;}},
   /* back up: the dead screen stays its full 15 s unless the game says a medic revived him */
   up(e){if(S.gt-S.revivedAt<15){if(S.inter==='dead'){S.inter=null;S.act='idle';markAct('idle');}setTimeout(()=>card('SAVED','#19e39a','A medic got him back up'),1200);}},
-  died(){S.md++;S.newLife=true;},
+  died(){S.md++;S.newLife=true;S.spawnPending=true;},
   xp(e){const t=S.gt,k=e.kind;
    /* each feed line is one reward, sent twice by the reader (its money, then its XP): count it once */
    const first=e.line==null||!S.lines[e.line];if(e.line!=null)S.lines[e.line]=1;
@@ -1263,6 +1298,7 @@ S.startWallet=S.wallet;S.low=0;S.revivedAt=-999;
      if(k==='build_complete'){S.totBuilds++;S.stint.builds++;   /* "Things built": finished pieces only */
        if(S.host==='builder')burst(1690,760,14,['#ffb000','#fff','#9fc3ff'],260,500,4,.8);}}
    else if(k==='revive'||k==='revive_assist')doRevive(true);
+   else if(k==='spot'){S.spots=(S.spots||0)+1;if(/REFRESH/i.test(e.text||''))S.respots=(S.respots||0)+1;}   /* recon counter (re-spots count too) */
    else if(k==='kill_assist'){S.ma++;if(S.host==='combat')card('ASSIST','#8fb3c9','Kill assist · '+S.ma+' this match');}
    else if(k==='revived_me'){S.revivedAt=t;if(S.inter==='dead'){S.inter=null;S.act='idle';markAct('idle');card('SAVED','#19e39a','A medic got him back up');}}
    else if(k==='supplies'&&flying){S.flyLast=t;if(t-(S.pDlvT||-99)<20)return;S.pDlvT=t;S.pDlv++;   /* pilot supply run (one card per drop) */
@@ -1308,6 +1344,7 @@ S.startWallet=S.wallet;S.low=0;S.revivedAt=-999;
    if(e.match>=0)stage.classList.remove('broke');},
   pilot(e){if(e.spd!=null)S.spd=e.spd;if(e.agl!=null)S.agl=e.agl;if(e.hdg!=null)S.hdg=e.hdg;},
   level(){levelUp();},
+  match_end(e){endShow(e.result==='victory'?'victory':'defeat');},   /* DEFEAT / VICTORY screen */
   /* fresh start: the Reset button, or START.bat was restarted (new session id) */
   hello(e){if(S.session&&S.session!==e.session){location.reload();return;}S.session=e.session;},
   reset(){location.reload();},
