@@ -76,7 +76,7 @@ button.go{background:var(--amber);color:#171100;border-color:var(--amber)}
       <div class="shot" id="shot">No frame yet. Pick the game source on the right.</div>
       <div class="stats">
         <div><span>Checks / sec</span><b id="fps">0</b></div>
-        <div><span>ms per check</span><b id="ms">0</b></div>
+        <div><span>ms per check</span><b id="ms">0</b><small id="msSplit" style="display:block;font:600 11px var(--f-ui);color:var(--muted)"></small></div>
         <div><span>Channel signal</span><b id="chan">—</b></div>
         <div><span>Screen</span><b id="scr">—</b></div>
         <div><span>Speed (heli · vehicle)</span><b id="heli">—</b></div>
@@ -192,7 +192,8 @@ async function poll(){try{const s=await api('/api/status');
   if(s.obs==='connected'&&!haveSources)loadSources();
   $('diag').textContent='Game picture: '+(s.native||'?')+' · reader gets '+(s.frame||'?')+(s.native&&/^\d+x\d+$/.test(s.native)&&Math.abs(s.native.split('x')[0]/s.native.split('x')[1]-16/9)>.02?'  ⚠ not 16:9':'');
   const sc=s.pilot_check||{};$('scores').textContent='Detector scores (need 0.80): '+Object.keys(SC).map(k=>SC[k]+' '+(sc[k]!=null?sc[k].toFixed(2):'—')).join(' · ');
-  $('fps').textContent=s.fps;$('ms').textContent=s.ms;$('err').textContent=s.error||'';
+  $('fps').textContent=s.fps;$('ms').textContent=s.ms;$('ms').title='OBS picture '+(s.obs_ms??'?')+' ms + reading '+(s.read_ms??'?')+' ms';
+  $('msSplit').textContent=s.obs_ms!=null?('OBS '+s.obs_ms+' + read '+s.read_ms):'';$('err').textContent=s.error||'';
   if(document.activeElement!==$('names'))$('names').value=s.names.join(', ');$('rb').checked=s.replay_buffer;
   if(s.frames&&!document.hidden)$('shot').style.backgroundImage=`url(/api/snapshot.jpg?${Date.now()})`,$('shot').textContent='';
  }catch(e){$('obsTxt').textContent='server offline';$('obsPill').className='pill bad';}

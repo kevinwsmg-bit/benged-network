@@ -173,7 +173,7 @@ class Reader:
         self._cf_total, self._cf_tcand, self._cf_kind = 0, None, None
         self.kf_lines = CachedLines(max_w=470, max_new=4)
         self.pop_lines = CachedLines(max_new=3)
-        self.seat_lines = CachedLines(max_new=10, split=19, min_density=0.02, max_density=0.6)
+        self.seat_lines = CachedLines(max_new=5, split=19, min_density=0.02, max_density=0.6)
         self._kf_seen = []                    # kill-feed lines with his name now on screen
         self.state = dict(pilot=False, vehicle=False, hammer=False, medkit=False, scoped=False, hurt=False, screen="none")
         self._pilot_last = self._vehicle_last = self._hammer_last = self._medkit_last = -999

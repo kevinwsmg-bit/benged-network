@@ -128,7 +128,7 @@ class Capture(threading.Thread):
         self.replay_i = 0
         self.reader = Reader(names=cfg["names"], setup=cfg.get("setup", "auto"))
         self.status = dict(obs="connecting", source=cfg["source"], fps=0.0, ms=0, frames=0, error="", paused=False)
-        self.last_jpg = None
+        self.last_frame = self.last_raw = None
         self.cl = None
         self.kills = []
         self.stop = False
@@ -171,6 +171,7 @@ class Capture(threading.Thread):
                     time.sleep(0.5)
                     continue
                 raw = self.grab()
+                t_obs = time.time() - t0              # how long OBS took to hand over the picture
                 frame = cv2.imdecode(np.frombuffer(raw, np.uint8), cv2.IMREAD_COLOR)
                 full = f"{frame.shape[1]}x{frame.shape[0]}"
                 big = frame                       # the reader gets this full size (it reads the small feed text from it)
@@ -179,8 +180,8 @@ class Capture(threading.Thread):
                     # OBS's own scaler drops pixels at 2:1 (1440p -> 720p) and chops up thin HUD text
                     frame = cv2.resize(frame, (round(frame.shape[1] * 720 / frame.shape[0]), 720),
                                        interpolation=cv2.INTER_AREA)
-                    raw = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 80])[1].tobytes()
-                self.last_jpg = raw
+                    raw = None                        # the control panel's preview is encoded only when asked for
+                self.last_frame, self.last_raw = frame, raw
                 self.status["frame"] = f"{frame.shape[1]}x{frame.shape[0]}"
                 self.status["native"] = full if not self.replay else self.status.get("native")
                 for ev in self.reader.process(big, time.time()):
@@ -188,6 +189,13 @@ class Capture(threading.Thread):
                     self.clip_rule(ev)
                     self.log_event(ev)
                 times = (times + [time.time() - t0])[-20:]
+                obs_t = (getattr(self, "_obs_t", []) + [t_obs])[-20:]
+                self._obs_t = obs_t
+                obs_ms = int(1000 * sum(obs_t) / len(obs_t))
+                self.status.update(obs_ms=obs_ms, read_ms=max(0, int(1000 * sum(times) / len(times)) - obs_ms))
+                if self.status["frames"] % 120 == 0:   # every minute or so: timing into the stream log
+                    self.log_event(dict(type="perf", obs_ms=obs_ms, read_ms=self.status["read_ms"],
+                                        picture=full, profile=self.reader.profile, t=time.time()))
                 self.status.update(obs="replay" if self.replay else "connected", ms=int(1000 * sum(times) / len(times)),
                                    fps=round(1 / max(period, sum(times) / len(times)), 1),
                                    frames=self.status["frames"] + 1, error="")
@@ -198,6 +206,15 @@ class Capture(threading.Thread):
                 time.sleep(2)
                 continue
             time.sleep(max(0.0, period - (time.time() - t0)))
+
+    @property
+    def last_jpg(self):
+        """The latest picture as JPEG (control-panel preview / debug), encoded on demand."""
+        if self.last_raw is not None:
+            return self.last_raw
+        if self.last_frame is None:
+            return None
+        return cv2.imencode(".jpg", self.last_frame, [cv2.IMWRITE_JPEG_QUALITY, 80])[1].tobytes()
 
     def grab(self):
         """One 1280x720 JPEG of the game: from OBS, or the next test frame in replay mode."""

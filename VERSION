@@ -1,2 +1,2 @@
-2.3.0
-New in the control panel: 'Where is benged playing?' Auto-detect (default) switches between your PC (1440x900 fullscreen) and your buddy's (1920x1080 windowed) by itself and relearns the HUD in a few seconds; you can also pick one by hand. The panel shows which one it's using.
+2.3.1
+Control panel shows where the time goes (OBS picture vs reading) under 'ms per check', and the stream log records it every minute; the preview picture is only made when the panel is open; seat list reads lighter.
