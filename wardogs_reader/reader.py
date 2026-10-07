@@ -156,9 +156,12 @@ class LineTracker:
 
 
 class Reader:
-    def __init__(self, names=("Benged",), mask=(), feed_sx=None):
+    def __init__(self, names=("Benged",), mask=(), feed_sx=None, setup="auto"):
         self.names = [norm(n) for n in names if n]
         self.feed_sx = feed_sx                # sideways stretch of the picture (None: learn it)
+        self.setup = setup                    # auto | home (1440x900 fullscreen) | buddy (1920x1080 windowed)
+        self.profile = None                   # the one in use right now
+        self.picture = ""
         self.mask = mask                      # [(x0,y0,x1,y1) fractions] blanked before reading (VOD tests: webcam)
         self.tpl = Templates()
         self.t = 0.0
@@ -214,6 +217,13 @@ class Reader:
         self.t = t
         ev = []
         self._full = frame                    # full size: the reward feed is read from this
+        h, w = frame.shape[:2]
+        self.picture = f"{w}x{h}"
+        want = self.setup if self.setup in ("home", "buddy") else ("home" if abs(w / h - 1.6) < 0.03 else "buddy")
+        if want != self.profile:              # moved PCs (or he changed the setting): learn this setup's HUD
+            self.profile = want
+            self.tpl.use_profile(want)
+            ev.append(dict(type="setup", profile=want, picture=self.picture, chosen=self.setup))
         if frame.shape[0] != 720:
             # the game sizes its HUD by screen height: scaling every picture to 720 tall keeps the HUD
             # the same size whatever the shape (16:9 -> 1280x720, 16:10 1440x900 -> 1152x720)

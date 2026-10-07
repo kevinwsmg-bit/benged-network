@@ -64,7 +64,18 @@ class Templates:
         # settings changes)
         self.known = {}                      # name -> candidate indices that matched >= 0.8
         self.ncalls = {}
+        self.profile = "home"
         self._seed()
+
+    def use_profile(self, profile):
+        """Which PC he's playing on. 'home' = his own 1440x900 fullscreen (start with the label cuts taken
+        from it); anything else (his buddy's 1920x1080 windowed, ...) starts from scratch and learns the
+        right label sizes within a few seconds (full search every 4th call until each label is found)."""
+        self.profile = profile
+        self.pref, self.votes, self.stretch = {}, {}, None
+        self.known = {}
+        if profile == "home":
+            self._seed()
 
     def _seed(self):
         """Start with the actual-size, unstretched candidates (the _2/_3 looks are cut from benged's own
@@ -80,7 +91,7 @@ class Templates:
         self.calls += 1
         if self.calls % 6000 == 0:           # every few minutes look at every stretch again (settings change)
             self.stretch, self.votes = None, {}
-            self._seed()
+            self.use_profile(self.profile)
         h, w = gray.shape
         x0, y0, x1, y1 = REGIONS[HOME[name]]
         ox, oy = int(x0 * w), int(y0 * h)
@@ -90,7 +101,7 @@ class Templates:
         known = self.known.get(name, [])
         n = self.ncalls[name] = self.ncalls.get(name, 0) + 1
         order = list(known)
-        if not known or n % 8 == 0:
+        if (not known and n % 4 == 0) or n % 8 == 0:
             first = self.pref.get(name, 0)
             order += [j for j in [first] + list(range(len(cands))) if j not in order]
             order = list(dict.fromkeys(order))

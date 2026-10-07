@@ -100,6 +100,13 @@ button.go{background:var(--amber);color:#171100;border-color:var(--amber)}
       <div class="row"><input id="names" style="flex:1" value="Benged"></div>
       <div class="row"><label for="rb"><input type="checkbox" id="rb"> Save OBS replay buffer on big moments (crash, 100 m+ kill, 3 kills in a minute)</label></div>
       <div class="row"><button class="go" id="save" type="button">Save</button><button id="pause" type="button">Pause reader</button><span id="saved" class="hint"></span></div>
+      <h2 style="margin-top:6px">Where is benged playing?</h2>
+      <div class="row"><select id="setup" style="flex:1" aria-label="Which PC and resolution">
+        <option value="auto">Auto-detect from the game picture (recommended)</option>
+        <option value="home">benged's PC · 1440 × 900 fullscreen</option>
+        <option value="buddy">Buddy's PC · 1920 × 1080 windowed fullscreen</option>
+      </select></div>
+      <p class="hint" id="setupNow" style="margin:6px 0 0">Detected: …</p>
       <h2 style="margin-top:6px">Overlay URL for OBS (browser source, 1920 × 1080)</h2>
       <div class="row"><span class="url" id="ovUrl"></span><button id="copy" type="button">Copy</button></div>
     </div>
@@ -198,6 +205,14 @@ function line(e){const d=document.createElement('div');const t=new Date().toLoca
   if(e.type==='hello'||e.type==='reset')return;
   const {t:_,...rest}=e;d.textContent=t+'  '+e.type.toUpperCase()+'  '+JSON.stringify(rest);const l=$('log');l.prepend(d);while(l.children.length>200)l.lastChild.remove();}
 function ws(){const w=new WebSocket('ws://'+location.host+'/ws');w.onmessage=m=>{try{line(JSON.parse(m.data))}catch(_){}};w.onclose=()=>setTimeout(ws,2000);}
+/* where he plays (WARDOGS): auto / home / buddy */
+const SETUP_NAME={home:"benged's PC settings",buddy:"Buddy's PC settings"};
+$('setup').onchange=async()=>{await api('/api/config',{setup:$('setup').value});};
+async function pollSetup(){try{const s=await api('/api/status');if(document.activeElement!==$('setup'))$('setup').value=s.setup||'auto';
+  const [w,h]=(s.picture||'').split('x').map(Number);const ar=w&&h?(Math.abs(w/h-1.6)<.03?'16:10':Math.abs(w/h-16/9)<.03?'16:9':(w/h).toFixed(2)+':1'):'';
+  $('setupNow').textContent=s.profile?`Game picture ${s.native||s.picture} (${ar}) → using ${SETUP_NAME[s.profile]}${s.setup==='auto'?' (auto)':' (chosen)'}`:'Detected: waiting for the game picture…';
+ }catch(_){}setTimeout(pollSetup,2000);}
+pollSetup();
 /* game picker + Rocket League */
 let game=null;
 function showGame(g){game=g;$('gWD').className=g==='wardogs'?'go':'';$('gRL').className=g==='rocketleague'?'go':'';$('rlBox').style.display=g==='rocketleague'?'block':'none';}

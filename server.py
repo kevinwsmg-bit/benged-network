@@ -45,6 +45,7 @@ DEFAULTS = {
     "port": 8765,
     "replay_buffer": False,    # save OBS replay buffer on big moments (crash, long shot, 3+ streak)
     "game": "wardogs",         # wardogs (reads the screen) | rocketleague (the game's own Stats API)
+    "setup": "auto",           # where he plays WARDOGS: auto | home (1440x900 fullscreen) | buddy (1920x1080 windowed)
     "rl_port": 49124,          # Rocket League Stats API WebSocket port (WebPort in TAStatsAPI.ini)
 }
 
@@ -125,7 +126,7 @@ class Capture(threading.Thread):
         self.hub, self.cfg = hub, cfg
         self.replay = sorted(glob.glob(os.path.join(replay, "*.jpg"))) if replay else None
         self.replay_i = 0
-        self.reader = Reader(names=cfg["names"])
+        self.reader = Reader(names=cfg["names"], setup=cfg.get("setup", "auto"))
         self.status = dict(obs="connecting", source=cfg["source"], fps=0.0, ms=0, frames=0, error="", paused=False)
         self.last_jpg = None
         self.cl = None
@@ -408,6 +409,7 @@ def make_app(cfg, replay=None):
 
     async def status(_):
         return web.json_response(dict(cap.status, names=cfg["names"], fps_target=cfg["fps"], game=cfg.get("game", "wardogs"),
+                                      setup=cfg.get("setup", "auto"), profile=cap.reader.profile, picture=cap.reader.picture,
                                       rl=dict(connected=rl["connected"], error=rl["error"], events=rl["events"],
                                               last=round(time.time() - rl["last"], 1) if rl["last"] else None,
                                               record=[rl["tr"].wins, rl["tr"].losses]),
@@ -426,6 +428,9 @@ def make_app(cfg, replay=None):
             cap.set_names([n.strip() for n in body["names"] if n.strip()])
         if "paused" in body:
             cap.status["paused"] = bool(body["paused"])
+        if body.get("setup") in ("auto", "home", "buddy"):
+            cfg["setup"] = body["setup"]
+            cap.reader.setup = body["setup"]          # takes effect on the next picture
         if body.get("game") in ("wardogs", "rocketleague") and body["game"] != cfg.get("game"):
             cfg["game"] = body["game"]
             rl["tr"] = Translator(cfg["names"])
@@ -467,7 +472,7 @@ def make_app(cfg, replay=None):
 
     async def reset(_):
         """Fresh start for a new stream: forget test clicks, kills, cash baseline, everything."""
-        cap.reader = Reader(names=cfg["names"])
+        cap.reader = Reader(names=cfg["names"], setup=cfg.get("setup", "auto"))
         rl["tr"] = Translator(cfg["names"])
         hub.log = []
         await hub.send(dict(type="reset", t=time.time()))
