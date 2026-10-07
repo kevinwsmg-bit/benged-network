@@ -235,6 +235,11 @@ class Reader:
                 frame[int(y0 * 720):int(y1 * 720), int(x0 * frame.shape[1]):int(x1 * frame.shape[1])] = 0
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         prev_state = dict(self.state)
+        # how far apart the checks are on this PC (~0.5 s at home, ~2 s on a busy PC): hold times scale with it
+        if getattr(self, "_t_prev", None) is not None and 0 < t - self._t_prev < 10:
+            self._dt = 0.8 * getattr(self, "_dt", 0.5) + 0.2 * (t - self._t_prev)
+        self._t_prev = t
+        hold = max(4.0, 3.2 * getattr(self, "_dt", 0.5))     # one or two missed gauge reads never end a flight
 
         if self._due("screen", 0.5):
             self._read_screens(frame, gray, ev)
@@ -244,10 +249,15 @@ class Reader:
             # pilot seat: the pilot-only control hints, or the SPD + ALT gauges
             # (either is enough; the hints can be toggled off)
             self._gauges = self._find_gauges(gray)
-            self._vgauge = None if self._gauges else self._find_vehicle_gauge(gray)
-            heli_keys = self.tpl.seen(gray, "collective_lift", "deploy_flares", thresh=0.8)
-            seat_keys = self.tpl.seen(gray, "change_seat", thresh=0.8)   # every seat, passengers too
-            if self._gauges or heli_keys:
+            self._vgauge = None if (self._gauges or self.tpl.last.get("alt_label", 0) >= 0.88) else self._find_vehicle_gauge(gray)
+            in_seat = self.state["pilot"] or self.state["vehicle"]
+            backup = in_seat and not self._gauges       # gauges missed this time: lean on the control list
+            heli_keys = self.tpl.seen(gray, "collective_lift", "deploy_flares", thresh=0.8, eager=backup)
+            seat_keys = self.tpl.seen(gray, "change_seat", thresh=0.8, eager=backup)   # every seat, passengers too
+            # the ALT box only exists in the heli pilot seat: a strong ALT match alone is enough, even when
+            # the SPD box doesn't sit exactly where we expect it (other PCs / resolutions space them differently)
+            alt_only = not self._gauges and self.tpl.last.get("alt_label", 0) >= 0.88
+            if self._gauges or heli_keys or alt_only:
                 self._pilot_last = t
             elif self._vgauge or seat_keys:          # driver or passenger (benged: passengers count too)
                 self._vehicle_last = t
@@ -258,17 +268,18 @@ class Reader:
             # out of the vehicle: no gauges and no control list for 3 checks in a row (1.5 s), in game
             # (the list is on screen in every seat, and never on foot) -> drop pilot/vehicle now
             # which detectors fired (sent when it changes; only for the session log, to check streams later)
-            sig = "".join(c for c, on in (("G", self._gauges), ("V", self._vgauge), ("H", heli_keys),
+            sig = "".join(c for c, on in (("G", self._gauges), ("A", alt_only), ("V", self._vgauge), ("H", heli_keys),
                                           ("S", seat_keys), ("B", t - self._hammer_last < 0.1),
                                           ("R", t - self._medkit_last < 0.1)) if on)
             if sig != getattr(self, "_sig", None):
                 self._sig = sig
                 ev.append(dict(type="sig", s=sig or "-"))
-            if self._gauges or self._vgauge or heli_keys or seat_keys or self.state["screen"] != "none":
+            if self._gauges or alt_only or self._vgauge or heli_keys or seat_keys or self.state["screen"] != "none":
                 self._out = 0
             else:
                 self._out = getattr(self, "_out", 0) + 1
-                if self._out >= 3:                   # 1.5 s
+                # 3 checks in a row AND at least 1.5 s (on a slow PC 3 checks take longer, that's fine)
+                if self._out >= 3 and t - max(self._pilot_last, self._vehicle_last) >= max(1.5, 2.5 * getattr(self, "_dt", 0.5)):
                     self._pilot_last = self._vehicle_last = -999
         if self.state["screen"] == "vendor" and self._due("vcash", 0.5):
             self._read_cash(frame, ev, need=2)          # purchases = wallet going down in the store
@@ -296,9 +307,9 @@ class Reader:
         if self._due("kf", 0.75):
             self._read_killfeed(frame, ev)
 
-        self.state["pilot"] = t - self._pilot_last < 4.0
-        self.state["vehicle"] = (not self.state["pilot"]) and t - self._vehicle_last < 4.0
-        self.state["hammer"] = not (self.state["pilot"] or self.state["vehicle"]) and t - self._hammer_last < 4.0
+        self.state["pilot"] = t - self._pilot_last < hold
+        self.state["vehicle"] = (not self.state["pilot"]) and t - self._vehicle_last < hold
+        self.state["hammer"] = not (self.state["pilot"] or self.state["vehicle"]) and t - self._hammer_last < hold
         self.state["medkit"] = (not (self.state["pilot"] or self.state["vehicle"] or self.state["hammer"])
                                 and t - self._medkit_last < 3.0)
         self._flush_kill(ev)

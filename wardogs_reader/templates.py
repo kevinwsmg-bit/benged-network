@@ -145,5 +145,11 @@ class Templates:
     def score(self, gray, name):
         return self.locate(gray, name)[0]
 
-    def seen(self, gray, *names, thresh=0.72):
+    def seen(self, gray, *names, thresh=0.72, eager=False):
+        """eager: search every size now even if this label hasn't been learned yet (used for the
+        backup in-vehicle signals while he's already flying/driving, where a miss would end the flight)."""
+        if eager:
+            for n in names:
+                if not self.known.get(n):
+                    self.ncalls[n] = 7          # the next call is a full search
         return any(self.locate(gray, n, stop=thresh)[0] >= thresh for n in names)

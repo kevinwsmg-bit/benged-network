@@ -1,2 +1,2 @@
-2.3.2
-Control panel now shows how big the overlay is in OBS. If the Browser source isn't 1920 x 1080 (16:9) it turns red and says exactly what to change.
+2.3.3
+Fixes Benged Air flickering to on-foot while sitting in the heli on slower PCs: a strong altitude gauge alone now counts as flying (other screens space the gauges differently), hold times stretch when the PC checks slowly, and the in-seat control list backs it up right away.
