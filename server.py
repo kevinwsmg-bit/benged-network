@@ -97,6 +97,7 @@ class Hub:
     def __init__(self):
         self.clients = set()
         self.overlays = set()                 # the subset that said hello as the OBS overlay
+        self.overlay_size = {}                # overlay websocket -> (width, height) of its OBS browser source
         self.loop = None
         self.log = []
         self.session = uuid.uuid4().hex[:8]   # new every START.bat: overlays reload themselves on a new id
@@ -420,8 +421,15 @@ def make_app(cfg, replay=None):
                 break
             if msg.type == WSMsgType.TEXT and '"overlay"' in msg.data:
                 hub.overlays.add(ws)
+                try:
+                    m = json.loads(msg.data)
+                    if m.get("w") and m.get("h"):
+                        hub.overlay_size[ws] = (int(m["w"]), int(m["h"]))
+                except (ValueError, TypeError):
+                    pass
         hub.clients.discard(ws)
         hub.overlays.discard(ws)
+        hub.overlay_size.pop(ws, None)
         return ws
 
     async def status(_):
@@ -431,7 +439,8 @@ def make_app(cfg, replay=None):
                                               last=round(time.time() - rl["last"], 1) if rl["last"] else None,
                                               record=[rl["tr"].wins, rl["tr"].losses]),
                                       replay_buffer=cfg["replay_buffer"], clients=len(hub.clients),
-                                      overlays=len(hub.overlays), pilot_check=cap.reader.tpl.last))
+                                      overlays=len(hub.overlays), pilot_check=cap.reader.tpl.last,
+                                      overlay_sizes=[f"{w}x{h}" for ws_, (w, h) in hub.overlay_size.items() if ws_ in hub.overlays]))
 
     async def sources(_):
         return web.json_response(await asyncio.to_thread(cap.sources))

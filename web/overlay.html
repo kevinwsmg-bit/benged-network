@@ -1351,7 +1351,8 @@ S.startWallet=S.wallet;S.low=0;S.revivedAt=-999;
  };
  setInterval(()=>{if(S.medkit&&!S.inter)S.revive.push(S.gt);},2000);   /* still holding it */
  function connect(){const ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws');
-  ws.onopen=()=>{document.body.classList.remove('offline');ws.send(JSON.stringify({role:'overlay'}));};
+  ws.onopen=()=>{document.body.classList.remove('offline');ws.send(JSON.stringify({role:'overlay',w:innerWidth,h:innerHeight}));};
+  addEventListener('resize',()=>{try{ws.send(JSON.stringify({role:'overlay',w:innerWidth,h:innerHeight}))}catch(_){}});
   ws.onclose=()=>{document.body.classList.add('offline');setTimeout(connect,2000);};
   ws.onmessage=m=>{let e;try{e=JSON.parse(m.data)}catch(_){return}const f=H[e.type];if(f)try{f(e)}catch(err){console.error(err)}};}
  connect();
